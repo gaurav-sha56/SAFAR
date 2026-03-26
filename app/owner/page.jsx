@@ -325,15 +325,12 @@ export default function OwnerDashboard() {
     setTimeout(() => setToast(null), 3500);
   }, []);
 
-  // Derive fleetId from user email
-  const userEmail = user?.primaryEmailAddress?.emailAddress;
-  const derivedFleetId = userEmail ? `fleet-${userEmail}` : SAFAR_FLEET_ID;
+  // Use hardcoded fleet ID for now until database issues are resolved
+  const derivedFleetId = SAFAR_FLEET_ID;
 
   // Ensure fleet exists for this email
   useEffect(() => {
     const ensureFleetExists = async () => {
-      if (!userEmail) return;
-
       try {
         const response = await fetch('/api/fleet-dashboard', {
           method: 'POST',
@@ -343,7 +340,7 @@ export default function OwnerDashboard() {
           body: JSON.stringify({
             fleetId: derivedFleetId,
             ensureExists: true,
-            ownerEmail: userEmail,
+            ownerEmail: 'test@example.com',
           }),
         });
 
@@ -356,7 +353,7 @@ export default function OwnerDashboard() {
     };
 
     ensureFleetExists();
-  }, [derivedFleetId, userEmail]);
+  }, [derivedFleetId]);
 
   const fetchDashboardData = useCallback(
     async ({ silent = false } = {}) => {
