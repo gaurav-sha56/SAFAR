@@ -83,7 +83,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      message: `Successfully joined fleet "${fleet.owner_name ? `${fleet.owner_name}'s Fleet` : 'Safar Cabs Fleet'}".`,
+      message: `Successfully joined fleet "${fleet.owner_name}".`,
       data: {
         driver: {
           id: driver.id,
@@ -95,7 +95,7 @@ export async function POST(request) {
         },
         fleet: {
           id: fleet.id,
-          name: fleet.owner_name ? `${fleet.owner_name}'s Fleet` : 'Safar Cabs Fleet',
+          name: fleet.owner_name,
           inviteCode: fleet.invite_code,
         },
         tracking: {

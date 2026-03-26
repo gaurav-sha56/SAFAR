@@ -325,6 +325,39 @@ export default function OwnerDashboard() {
     setTimeout(() => setToast(null), 3500);
   }, []);
 
+  // Derive fleetId from user email
+  const userEmail = user?.primaryEmailAddress?.emailAddress;
+  const derivedFleetId = userEmail ? `fleet-${userEmail}` : SAFAR_FLEET_ID;
+
+  // Ensure fleet exists for this email
+  useEffect(() => {
+    const ensureFleetExists = async () => {
+      if (!userEmail) return;
+
+      try {
+        const response = await fetch('/api/fleet-dashboard', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            fleetId: derivedFleetId,
+            ensureExists: true,
+            ownerEmail: userEmail,
+          }),
+        });
+
+        if (!response.ok) {
+          console.warn('Failed to ensure fleet exists');
+        }
+      } catch (error) {
+        console.warn('Error ensuring fleet exists:', error);
+      }
+    };
+
+    ensureFleetExists();
+  }, [derivedFleetId, userEmail]);
+
   const fetchDashboardData = useCallback(
     async ({ silent = false } = {}) => {
       if (!silent) {
@@ -333,7 +366,7 @@ export default function OwnerDashboard() {
 
       try {
         const response = await fetch(
-          `/api/fleet-dashboard?fleetId=${encodeURIComponent(SAFAR_FLEET_ID)}`,
+          `/api/fleet-dashboard?fleetId=${encodeURIComponent(derivedFleetId)}`,
           { cache: 'no-store' }
         );
         const result = await response.json();
@@ -344,7 +377,7 @@ export default function OwnerDashboard() {
 
         setFleet({
           id: result.data.fleet.id,
-          name: result.data.fleet.name,
+          name: result.data.fleet.name || 'My Fleet',
         });
         setInviteCode(result.data.fleet.inviteCode || null);
         const incomingDrivers = result.data.drivers || [];
@@ -402,7 +435,7 @@ export default function OwnerDashboard() {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [fetchDashboardData]);
+  }, [derivedFleetId, fetchDashboardData]);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -410,7 +443,7 @@ export default function OwnerDashboard() {
     }, 10000);
 
     return () => clearInterval(intervalId);
-  }, [fetchDashboardData]);
+  }, [derivedFleetId, fetchDashboardData]);
 
   const activeCount = drivers.filter((d) => d.is_online).length;
 

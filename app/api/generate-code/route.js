@@ -111,7 +111,7 @@ export async function POST(request) {
       success: true,
       data: {
         fleetId: updated.id,
-        fleetName: updated.owner_name ? `${updated.owner_name}'s Fleet` : 'Safar Cabs Fleet',
+        fleetName: updated.owner_name,
         inviteCode: updated.invite_code,
         generatedAt: new Date().toISOString(),
       },

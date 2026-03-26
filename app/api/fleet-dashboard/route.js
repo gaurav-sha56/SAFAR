@@ -77,7 +77,7 @@ export async function GET(request) {
       data: {
         fleet: {
           id: fleet.id,
-          name: fleet.owner_name ? `${fleet.owner_name}'s Fleet` : 'Safar Cabs Fleet',
+          name: fleet.owner_name || 'My Fleet',
           inviteCode: fleet.invite_code,
         },
         drivers: drivers ?? [],
@@ -88,6 +88,96 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error('Unhandled error in /api/fleet-dashboard:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error.' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request) {
+  try {
+    const body = await request.json();
+    const { fleetId, ensureExists, ownerEmail } = body;
+
+    if (!fleetId) {
+      return NextResponse.json(
+        { success: false, error: 'fleetId is required.' },
+        { status: 400 }
+      );
+    }
+
+    if (!ensureExists) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid request.' },
+        { status: 400 }
+      );
+    }
+
+    const supabase = createServerClient();
+
+    // Check if fleet already exists
+    const { data: existingFleet, error: checkError } = await supabase
+      .from('fleets')
+      .select('id, owner_name, invite_code')
+      .eq('id', fleetId)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('Fleet existence check error:', checkError);
+      return NextResponse.json(
+        { success: false, error: 'Failed to check fleet existence.' },
+        { status: 500 }
+      );
+    }
+
+    // If fleet doesn't exist, create it with default name
+    if (!existingFleet) {
+      const { data: newFleet, error: createError } = await supabase
+        .from('fleets')
+        .insert({
+          id: fleetId,
+          owner_name: 'My Fleet',
+          invite_code: null,
+        })
+        .select('id, owner_name, invite_code')
+        .single();
+
+      if (createError) {
+        console.error('Fleet creation error:', createError);
+        return NextResponse.json(
+          { success: false, error: 'Failed to create fleet.' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Fleet created successfully.',
+        data: {
+          fleet: {
+            id: newFleet.id,
+            name: newFleet.owner_name,
+            inviteCode: newFleet.invite_code,
+          },
+        },
+      });
+    }
+
+    // Fleet already exists
+    return NextResponse.json({
+      success: true,
+      message: 'Fleet already exists.',
+      data: {
+        fleet: {
+          id: existingFleet.id,
+          name: existingFleet.owner_name,
+          inviteCode: existingFleet.invite_code,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Unhandled error in /api/fleet-dashboard POST:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error.' },
       { status: 500 }
