@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 import { buildOfflineAlerts } from '@/lib/safety';
+import { randomInt } from 'node:crypto';
 
 function formatSupabaseError(error, fallbackMessage) {
   if (!error) {
@@ -9,6 +10,10 @@ function formatSupabaseError(error, fallbackMessage) {
 
   const parts = [error.message, error.details, error.hint].filter(Boolean);
   return parts.length ? parts.join(' | ') : fallbackMessage;
+}
+
+function generateInviteCode() {
+  return randomInt(0, 100000).toString().padStart(5, '0');
 }
 
 export async function GET(request) {
@@ -142,12 +147,46 @@ export async function POST(request) {
 
     // If fleet doesn't exist, create it with default name
     if (!existingFleet) {
+      let initialInviteCode = null;
+      let attempts = 0;
+
+      while (attempts < 25) {
+        const candidateCode = generateInviteCode();
+        const { data: conflictingFleet, error: codeCheckError } = await supabase
+          .from('fleets')
+          .select('id')
+          .eq('invite_code', candidateCode)
+          .maybeSingle();
+
+        if (codeCheckError) {
+          console.error('Invite code uniqueness check error:', codeCheckError);
+          return NextResponse.json(
+            { success: false, error: formatSupabaseError(codeCheckError, 'Could not prepare a unique invite code.') },
+            { status: 500 }
+          );
+        }
+
+        if (!conflictingFleet) {
+          initialInviteCode = candidateCode;
+          break;
+        }
+
+        attempts += 1;
+      }
+
+      if (!initialInviteCode) {
+        return NextResponse.json(
+          { success: false, error: 'Could not generate an initial invite code for this fleet.' },
+          { status: 409 }
+        );
+      }
+
       const { data: newFleet, error: createError } = await supabase
         .from('fleets')
         .upsert({
           id: fleetId,
           owner_name: 'My Fleet',
-          invite_code: null,
+          invite_code: initialInviteCode,
         }, { onConflict: 'id' })
         .select('id, owner_name, invite_code')
         .single();

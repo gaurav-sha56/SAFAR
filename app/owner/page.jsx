@@ -362,7 +362,7 @@ export default function OwnerDashboard() {
     hasEnsuredFleet &&
     Boolean(derivedFleetId) &&
     fleet.id === derivedFleetId &&
-    (!inviteCode || !fleet.name || fleet.name === 'My Fleet');
+    (!fleet.name || fleet.name === 'My Fleet');
 
   const ensureFleetExists = useCallback(async () => {
     if (!derivedFleetId) {
