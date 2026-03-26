@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { UserButton, useUser } from '@clerk/nextjs';
 
 const DEFAULT_FLEET = {
-  id: 'pending-fleet',
-  name: 'Safar Demo Fleet',
+  id: '',
+  name: '',
 };
 
 function createFleetIdFromOwnerId(ownerId) {
@@ -358,6 +358,7 @@ export default function OwnerDashboard() {
   }, [user?.id]);
 
   const isFleetSetupPending =
+    hasEnsuredFleet &&
     Boolean(derivedFleetId) &&
     fleet.id === derivedFleetId &&
     (!inviteCode || !fleet.name || fleet.name === 'My Fleet');
@@ -566,6 +567,16 @@ export default function OwnerDashboard() {
     );
   }
 
+  if (derivedFleetId && !hasEnsuredFleet) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_48%,#fff8f1_100%)] px-4">
+        <div className="rounded-[28px] border border-sky-100 bg-white px-6 py-5 text-center text-sm font-medium text-slate-500 shadow-[0_18px_45px_rgba(15,42,94,0.08)]">
+          Preparing your fleet workspace...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_48%,#fff8f1_100%)] font-sans text-slate-900">
       <header className="relative overflow-hidden border-b border-sky-100 bg-white/95 backdrop-blur-sm">
@@ -593,12 +604,12 @@ export default function OwnerDashboard() {
 
             <div className="flex w-full items-center justify-between gap-3 rounded-[28px] border border-sky-100 bg-white px-4 py-3 shadow-[0_18px_45px_rgba(15,42,94,0.08)] sm:w-auto sm:min-w-[320px]">
               <div className="min-w-0 flex-1 text-left sm:text-right">
-                <p className="text-sm font-semibold text-slate-900">{fleet.name}</p>
+                <p className="text-sm font-semibold text-slate-900">{fleet.name || 'New Fleet'}</p>
                 <p className="truncate text-xs text-slate-500">{user?.primaryEmailAddress?.emailAddress || 'Fleet Owner'}</p>
               </div>
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-700">
-                  {fleet.name.charAt(0)}
+                  {(fleet.name || 'N').charAt(0)}
                 </div>
                 <UserButton
                   appearance={{
@@ -665,7 +676,7 @@ export default function OwnerDashboard() {
             <div className="grid gap-3 sm:grid-cols-2">
               <QuickStat label="Total Drivers" value={drivers.length} />
               <QuickStat label="Active Now" value={activeCount} accent />
-              <QuickStat label="Fleet ID" value={fleet.id.slice(-8).toUpperCase()} />
+              <QuickStat label="Fleet ID" value={fleet.id ? fleet.id.slice(-8).toUpperCase() : 'PENDING'} />
               <div className="rounded-[28px] border border-emerald-200 bg-[linear-gradient(135deg,#ecfdf5_0%,#ffffff_100%)] px-5 py-5 shadow-[0_18px_55px_rgba(15,42,94,0.08)] transition-all duration-200 hover:-translate-y-1">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700">Status</p>
                 <div className="mt-3 flex items-center gap-2 text-xl font-black text-emerald-800">
