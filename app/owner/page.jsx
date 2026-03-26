@@ -6,7 +6,7 @@ import { UserButton, useUser } from '@clerk/nextjs';
 const SAFAR_FLEET_ID = 'c5ffdf6b-11f0-4ef2-8f3b-bef40bd31467';
 const DEFAULT_FLEET = {
   id: SAFAR_FLEET_ID,
-  name: 'Safar Cabs Demo Fleet',
+  name: 'Safar Demo Fleet',
 };
 
 function hasValidLocation(coords) {
@@ -26,16 +26,16 @@ function getDriverMapHref(coords) {
 function QuickStat({ label, value, accent = false }) {
   return (
     <div
-      className={`rounded-2xl border px-4 py-4 shadow-sm transition-transform duration-200 hover:-translate-y-0.5 ${
+      className={`min-h-[142px] rounded-[28px] border px-5 py-5 shadow-[0_18px_55px_rgba(15,42,94,0.08)] transition-all duration-200 hover:-translate-y-1 ${
         accent
-          ? 'border-orange-200 bg-orange-50'
-          : 'border-stone-200 bg-white'
+          ? 'border-orange-200 bg-[linear-gradient(135deg,#fff7ed_0%,#ffffff_100%)]'
+          : 'border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)]'
       }`}
     >
-      <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${accent ? 'text-orange-700' : 'text-stone-400'}`}>
+      <p className={`text-[11px] font-semibold uppercase tracking-[0.24em] ${accent ? 'text-orange-700' : 'text-sky-700'}`}>
         {label}
       </p>
-      <p className={`mt-2 text-2xl font-black tracking-tight ${accent ? 'text-navy' : 'text-navy'}`}>{value}</p>
+      <p className="mt-3 text-3xl font-black tracking-tight text-slate-950">{value}</p>
     </div>
   );
 }
@@ -57,10 +57,10 @@ function AlertBadge({ severity }) {
 function SafetyAlerts({ alerts }) {
   if (!alerts.length) {
     return (
-      <div className="rounded-[28px] border border-stone-200 bg-white/95 p-5 shadow-[0_18px_60px_rgba(15,42,94,0.08)] sm:p-6">
-        <div className="flex items-center justify-between gap-4">
+      <div className="rounded-[32px] border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-5 shadow-[0_18px_60px_rgba(15,42,94,0.08)] sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-xs font-semibold tracking-widest text-stone-400 uppercase">Safety Alerts</h2>
+            <h2 className="text-xs font-semibold tracking-widest text-sky-700 uppercase">Safety Alerts</h2>
             <p className="mt-1 text-sm text-stone-500">No active risk events right now. Fleet looks stable.</p>
           </div>
           <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
@@ -73,10 +73,10 @@ function SafetyAlerts({ alerts }) {
   }
 
   return (
-    <div className="rounded-[28px] border border-stone-200 bg-white/95 p-5 shadow-[0_18px_60px_rgba(15,42,94,0.08)] sm:p-6">
+    <div className="rounded-[32px] border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-5 shadow-[0_18px_60px_rgba(15,42,94,0.08)] sm:p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xs font-semibold tracking-widest text-stone-400 uppercase">Safety Alerts</h2>
+          <h2 className="text-xs font-semibold tracking-widest text-sky-700 uppercase">Safety Alerts</h2>
           <p className="mt-1 text-sm text-stone-600">Industry-style warning feed for speed, braking, and device connectivity.</p>
         </div>
         <span className="inline-flex w-fit items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700">
@@ -87,7 +87,7 @@ function SafetyAlerts({ alerts }) {
 
       <div className="mt-5 space-y-3">
         {alerts.slice(0, 6).map((alert) => (
-          <div key={alert.id} className="rounded-2xl border border-stone-200 bg-stone-50/80 p-4">
+          <div key={alert.id} className="rounded-[24px] border border-sky-100 bg-white p-4 shadow-[0_10px_30px_rgba(15,42,94,0.05)]">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -126,10 +126,10 @@ function CodeDisplay({ code }) {
   const digits = code ? String(code).padStart(5, '0').split('') : ['-', '-', '-', '-', '-'];
 
   return (
-    <div className="bg-white/95 border border-stone-200 rounded-[28px] p-5 shadow-[0_18px_60px_rgba(15,42,94,0.08)] sm:p-8">
-      <div className="flex items-start justify-between gap-4 mb-6">
+    <div className="rounded-[32px] border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-5 shadow-[0_18px_60px_rgba(15,42,94,0.08)] sm:p-8">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xs font-semibold tracking-widest text-stone-400 uppercase">
+          <h2 className="text-xs font-semibold tracking-widest text-sky-700 uppercase">
             Fleet Invite Code
           </h2>
           <p className="text-stone-500 text-sm mt-1">Share this fixed code with every driver in your fleet</p>
@@ -140,25 +140,25 @@ function CodeDisplay({ code }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-5 gap-2 sm:gap-3 mb-6">
+      <div className="mb-6 grid grid-cols-5 gap-2 sm:gap-3">
         {digits.map((digit, i) => (
           <div
             key={i}
-            className="aspect-square flex items-center justify-center bg-stone-50 border-2 border-orange-200 rounded-2xl text-3xl font-black text-navy tracking-[0.14em] transition-all duration-300 sm:text-5xl"
+            className="flex aspect-square items-center justify-center rounded-2xl border-2 border-orange-200 bg-[linear-gradient(180deg,#fffaf5_0%,#ffffff_100%)] text-2xl font-black tracking-[0.14em] text-slate-950 transition-all duration-300 min-[420px]:text-3xl sm:text-5xl"
           >
             {digit}
           </div>
         ))}
       </div>
 
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-stone-400">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <span className="text-xs leading-5 text-stone-400">
           {code ? 'This fleet uses one stable invite code for all linked drivers' : 'No invite code found for this fleet'}
         </span>
         <button
           onClick={handleCopy}
           disabled={!code}
-          className="ml-auto flex items-center gap-1.5 text-sm text-stone-500 hover:text-navy transition-colors duration-150 disabled:opacity-30"
+          className="flex items-center gap-1.5 self-start text-sm text-stone-500 transition-colors duration-150 hover:text-sky-700 disabled:opacity-30 sm:self-auto"
         >
           {copied ? (
             <>
@@ -203,10 +203,10 @@ function DriverRow({ driver, index }) {
       : null;
   const hasLocation = hasValidLocation(coords);
   const mapHref = hasLocation ? getDriverMapHref(coords) : null;
-  const rowClasses = `group flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-colors duration-150 ${
+  const rowClasses = `group flex w-full flex-col gap-4 rounded-[24px] border p-4 text-left transition-colors duration-150 sm:flex-row sm:items-center ${
     hasLocation
-      ? 'border-stone-200 hover:border-orange-200 hover:bg-orange-50/40 cursor-pointer'
-      : 'border-transparent hover:border-stone-200 hover:bg-stone-50'
+      ? 'border-sky-100 hover:border-orange-200 hover:bg-orange-50/40 cursor-pointer'
+      : 'border-transparent hover:border-sky-100 hover:bg-sky-50/40'
   }`;
 
   return (
@@ -218,8 +218,8 @@ function DriverRow({ driver, index }) {
       style={{ animationDelay: `${index * 60}ms` }}
       aria-disabled={!hasLocation}
     >
-      <div className="w-10 h-10 rounded-full bg-navy/10 flex items-center justify-center flex-shrink-0">
-        <span className="text-sm font-bold text-navy">
+      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-sky-100">
+        <span className="text-sm font-bold text-sky-700">
           {driver.name ? driver.name.charAt(0).toUpperCase() : driver.phone.slice(-2)}
         </span>
       </div>
@@ -232,10 +232,10 @@ function DriverRow({ driver, index }) {
         <p className="text-xs text-stone-400 mt-0.5">{driver.phone}</p>
       </div>
 
-      <div className="text-right flex-shrink-0">
+      <div className="w-full flex-shrink-0 text-left sm:w-auto sm:text-right">
         {hasLocation ? (
           <>
-            <span className="inline-flex items-center gap-1 text-xs text-navy font-medium">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-sky-700">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -254,7 +254,7 @@ function DriverRow({ driver, index }) {
         </p>
       </div>
 
-      <div className="flex items-center justify-center w-9 h-9 rounded-full bg-stone-100 text-stone-400 group-hover:bg-white group-hover:text-navy transition-colors">
+      <div className="flex h-9 w-9 items-center justify-center self-end rounded-full bg-sky-50 text-stone-400 transition-colors group-hover:bg-white group-hover:text-sky-700 sm:self-auto">
         {hasLocation ? (
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -274,7 +274,7 @@ function DriverList({ drivers, loading }) {
     return (
       <div className="space-y-2 py-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center gap-4 p-4 rounded-xl animate-pulse">
+          <div key={i} className="flex items-center gap-4 rounded-xl p-4 animate-pulse">
             <div className="w-10 h-10 bg-stone-200 rounded-full" />
             <div className="flex-1 space-y-2">
               <div className="h-3 bg-stone-200 rounded w-1/3" />
@@ -301,7 +301,7 @@ function DriverList({ drivers, loading }) {
   }
 
   return (
-    <div className="divide-y divide-stone-100">
+    <div className="divide-y divide-sky-50">
       {drivers.map((driver, i) => (
         <DriverRow key={driver.id} driver={driver} index={i} />
       ))}
@@ -415,37 +415,37 @@ export default function OwnerDashboard() {
   const activeCount = drivers.filter((d) => d.is_online).length;
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#f5f5f4_0%,#fffdf8_45%,#f8fafc_100%)] font-sans">
-      <header className="relative overflow-hidden bg-navy text-white">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.22),transparent_28%),radial-gradient(circle_at_left,rgba(255,255,255,0.08),transparent_24%)]" />
-        <div className="relative max-w-6xl mx-auto px-4 py-5 sm:px-6 lg:px-8 lg:pb-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shadow-lg shadow-black/10">
-              <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-              </svg>
-            </div>
+    <div className="min-h-screen bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_48%,#fff8f1_100%)] font-sans text-slate-900">
+      <header className="relative overflow-hidden border-b border-sky-100 bg-white/95 backdrop-blur-sm">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.16),transparent_24%),radial-gradient(circle_at_left,rgba(249,115,22,0.12),transparent_24%)]" />
+        <div className="relative mx-auto max-w-6xl px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-600 shadow-[0_14px_30px_rgba(14,165,233,0.28)]">
+                <svg className="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+              </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-black tracking-tight">SAFAR</span>
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold tracking-[0.22em] text-white/65 uppercase">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-3xl font-extrabold tracking-tighter text-navy sm:text-4xl">SAFAR</span>
+                  <span className="rounded-full border border-sky-100 bg-sky-50 px-2.5 py-1 text-[10px] font-semibold tracking-[0.22em] text-sky-700 uppercase">
                     Fleet Safety
                   </span>
                 </div>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70">
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
                   Live fleet overview, fixed invite code access, and fast driver tracking for day-to-day cab operations.
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-3 lg:min-w-[280px] lg:justify-end">
-              <div className="text-right">
-                <p className="text-sm font-semibold">{fleet.name}</p>
-                <p className="text-xs text-white/50">{user?.primaryEmailAddress?.emailAddress || 'Fleet Owner'}</p>
+            <div className="flex w-full items-center justify-between gap-3 rounded-[28px] border border-sky-100 bg-white px-4 py-3 shadow-[0_18px_45px_rgba(15,42,94,0.08)] sm:w-auto sm:min-w-[320px]">
+              <div className="min-w-0 flex-1 text-left sm:text-right">
+                <p className="text-sm font-semibold text-slate-900">{fleet.name}</p>
+                <p className="truncate text-xs text-slate-500">{user?.primaryEmailAddress?.emailAddress || 'Fleet Owner'}</p>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-sm font-bold">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-700">
                   {fleet.name.charAt(0)}
                 </div>
                 <UserButton
@@ -462,29 +462,42 @@ export default function OwnerDashboard() {
         </div>
       </header>
 
-      <main className="relative z-10 max-w-6xl mx-auto px-4 py-6 pb-10 sm:px-6 lg:px-8">
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <QuickStat label="Total Drivers" value={drivers.length} />
-          <QuickStat label="Active Now" value={activeCount} />
-          <QuickStat label="Fleet ID" value={fleet.id.slice(-8).toUpperCase()} />
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 transition-transform duration-200 hover:-translate-y-0.5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-700">Status</p>
-            <div className="mt-2 flex items-center gap-2 text-lg font-black text-emerald-800">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-              Live
+      <main className="relative z-10 mx-auto max-w-6xl px-4 py-6 pb-10 sm:px-6 lg:px-8">
+        <section className="rounded-[34px] border border-sky-100 bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_62%,#fff7ed_100%)] p-5 shadow-[0_24px_70px_rgba(15,42,94,0.10)] sm:p-6 lg:p-8">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.95fr)] lg:items-center">
+            <div className="max-w-2xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-orange-500">Owner Dashboard</p>
+              <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">
+                Manage your fleet with a cleaner live overview.
+              </h1>
+              <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
+                Review active drivers, monitor safety alerts, and keep invite access ready from one professional workspace.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <QuickStat label="Total Drivers" value={drivers.length} />
+              <QuickStat label="Active Now" value={activeCount} accent />
+              <QuickStat label="Fleet ID" value={fleet.id.slice(-8).toUpperCase()} />
+              <div className="rounded-[28px] border border-emerald-200 bg-[linear-gradient(135deg,#ecfdf5_0%,#ffffff_100%)] px-5 py-5 shadow-[0_18px_55px_rgba(15,42,94,0.08)] transition-all duration-200 hover:-translate-y-1">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700">Status</p>
+                <div className="mt-3 flex items-center gap-2 text-xl font-black text-emerald-800">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Live
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="mt-6 grid gap-6 xl:grid-cols-[1.05fr_1.35fr]">
+        <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]">
           <div className="xl:sticky xl:top-6 xl:self-start">
             <CodeDisplay code={inviteCode} />
           </div>
 
-          <div className="bg-white/95 border border-stone-200 rounded-[28px] shadow-[0_18px_60px_rgba(15,42,94,0.08)] overflow-hidden">
-            <div className="flex flex-col gap-4 px-5 py-5 border-b border-stone-100 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-              <div>
-                <h2 className="text-xs font-semibold tracking-widest text-stone-400 uppercase">
+          <div className="overflow-hidden rounded-[32px] border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] shadow-[0_18px_60px_rgba(15,42,94,0.08)]">
+            <div className="flex flex-col gap-4 border-b border-sky-100 px-5 py-5 sm:px-6 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <h2 className="text-xs font-semibold tracking-widest text-sky-700 uppercase">
                   Linked Drivers
                 </h2>
                 <p className="text-stone-600 text-sm mt-1">
@@ -494,14 +507,14 @@ export default function OwnerDashboard() {
                   Smooth live tracking with OpenStreetMap links and quick status refresh.
                 </p>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="hidden sm:flex items-center gap-2 rounded-full bg-stone-100 px-3 py-1.5 text-xs font-medium text-stone-500">
+              <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+                <div className="inline-flex items-center gap-2 rounded-full border border-sky-100 bg-white px-3 py-1.5 text-xs font-medium text-slate-500">
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
                   Sync every 10s
                 </div>
                 <button
                   onClick={() => fetchDashboardData()}
-                  className="inline-flex items-center justify-center gap-1 rounded-full border border-stone-200 bg-white px-4 py-2 text-xs font-medium text-stone-500 hover:text-navy hover:border-orange-200 transition-colors"
+                  className="inline-flex items-center justify-center gap-1 rounded-full border border-sky-100 bg-white px-4 py-2 text-xs font-medium text-slate-500 transition-colors hover:border-orange-200 hover:text-sky-700"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -527,7 +540,7 @@ export default function OwnerDashboard() {
       >
         {toast && (
           <div
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium border ${
+            className={`max-w-[calc(100vw-3rem)] rounded-xl border px-4 py-3 text-sm font-medium shadow-lg ${
               toast.type === 'success'
                 ? 'bg-white border-emerald-200 text-emerald-700'
                 : toast.type === 'error'
@@ -535,16 +548,18 @@ export default function OwnerDashboard() {
                   : 'bg-white border-stone-200 text-stone-700'
             }`}
           >
-            {toast.type === 'success' ? (
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            )}
-            {toast.message}
+            <div className="flex items-start gap-3">
+              {toast.type === 'success' ? (
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              <span className="break-words">{toast.message}</span>
+            </div>
           </div>
         )}
       </div>

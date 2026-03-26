@@ -19,10 +19,12 @@
 
 # production
 /build
+dist/
 
 # misc
 .DS_Store
 *.pem
+Thumbs.db
 
 # debug
 npm-debug.log*
@@ -35,6 +37,7 @@ yarn-error.log*
 
 # vercel
 .vercel
+/.vercel/
 
 # typescript
 *.tsbuildinfo
@@ -42,3 +45,5 @@ next-env.d.ts
 
 # clerk configuration (can include secrets)
 /.clerk/
+.clerk/.tmp/
+*.log
