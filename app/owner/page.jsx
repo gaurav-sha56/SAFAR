@@ -340,6 +340,7 @@ export default function OwnerDashboard() {
   const [fleetSetupName, setFleetSetupName] = useState('');
   const [isSettingUpFleet, setIsSettingUpFleet] = useState(false);
   const [hasEnsuredFleet, setHasEnsuredFleet] = useState(false);
+  const [fleetEnsureError, setFleetEnsureError] = useState('');
   const [toast, setToast] = useState(null);
   const previousDriversRef = useRef([]);
   const previousAlertsRef = useRef([]);
@@ -363,40 +364,46 @@ export default function OwnerDashboard() {
     fleet.id === derivedFleetId &&
     (!inviteCode || !fleet.name || fleet.name === 'My Fleet');
 
-  useEffect(() => {
+  const ensureFleetExists = useCallback(async () => {
     if (!derivedFleetId) {
       return;
     }
 
     setHasEnsuredFleet(false);
+    setFleetEnsureError('');
 
-    const ensureFleetExists = async () => {
-      try {
-        const response = await fetch('/api/fleet-dashboard', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            fleetId: derivedFleetId,
-            ensureExists: true,
-            ownerEmail: user?.primaryEmailAddress?.emailAddress || null,
-          }),
-        });
+    try {
+      const response = await fetch('/api/fleet-dashboard', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fleetId: derivedFleetId,
+          ensureExists: true,
+          ownerEmail: user?.primaryEmailAddress?.emailAddress || null,
+        }),
+      });
+      const result = await response.json().catch(() => null);
 
-        if (!response.ok) {
-          console.warn('Failed to ensure fleet exists');
-          return;
-        }
-
-        setHasEnsuredFleet(true);
-      } catch (error) {
-        console.warn('Error ensuring fleet exists:', error);
+      if (!response.ok || !result?.success) {
+        const nextError = result?.error || 'Could not prepare your fleet workspace.';
+        setFleetEnsureError(nextError);
+        console.warn('Failed to ensure fleet exists:', nextError);
+        return;
       }
-    };
 
-    ensureFleetExists();
+      setHasEnsuredFleet(true);
+    } catch (error) {
+      const nextError = error?.message || 'Could not prepare your fleet workspace.';
+      setFleetEnsureError(nextError);
+      console.warn('Error ensuring fleet exists:', error);
+    }
   }, [derivedFleetId, user?.primaryEmailAddress?.emailAddress]);
+
+  useEffect(() => {
+    ensureFleetExists();
+  }, [ensureFleetExists]);
 
   const fetchDashboardData = useCallback(
     async ({ silent = false } = {}) => {
@@ -567,7 +574,7 @@ export default function OwnerDashboard() {
     );
   }
 
-  if (derivedFleetId && !hasEnsuredFleet) {
+  if (derivedFleetId && !hasEnsuredFleet && !fleetEnsureError) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_48%,#fff8f1_100%)] px-4">
         <div className="rounded-[28px] border border-sky-100 bg-white px-6 py-5 text-center text-sm font-medium text-slate-500 shadow-[0_18px_45px_rgba(15,42,94,0.08)]">
@@ -626,6 +633,22 @@ export default function OwnerDashboard() {
       </header>
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 py-6 pb-10 sm:px-6 lg:px-8">
+        {fleetEnsureError ? (
+          <section className="mb-6 rounded-[30px] border border-red-200 bg-red-50/80 p-5 shadow-[0_18px_45px_rgba(15,42,94,0.08)] sm:p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-red-600">Workspace Error</p>
+            <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950">We could not prepare your fleet yet.</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+              {fleetEnsureError}
+            </p>
+            <button
+              onClick={ensureFleetExists}
+              className="mt-4 inline-flex items-center justify-center rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              Retry fleet setup
+            </button>
+          </section>
+        ) : null}
+
         {isFleetSetupPending ? (
           <section className="mb-6 rounded-[34px] border border-orange-200 bg-[linear-gradient(135deg,#fff7ed_0%,#ffffff_100%)] p-5 shadow-[0_24px_70px_rgba(15,42,94,0.10)] sm:p-6 lg:p-8">
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:items-center">
