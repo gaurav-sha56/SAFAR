@@ -1,13 +1,34 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { UserButton, useUser } from '@clerk/nextjs';
 
-const SAFAR_FLEET_ID = 'c5ffdf6b-11f0-4ef2-8f3b-bef40bd31467';
 const DEFAULT_FLEET = {
-  id: SAFAR_FLEET_ID,
+  id: 'pending-fleet',
   name: 'Safar Demo Fleet',
 };
+
+function createFleetIdFromOwnerId(ownerId) {
+  const seed = String(ownerId || 'guest-owner');
+  let hashA = 0x811c9dc5;
+  let hashB = 0x01000193;
+  let hashC = 0x9e3779b9;
+  let hashD = 0x85ebca6b;
+
+  for (let i = 0; i < seed.length; i += 1) {
+    const code = seed.charCodeAt(i);
+    hashA = Math.imul(hashA ^ code, 0x01000193) >>> 0;
+    hashB = Math.imul(hashB ^ (code + i), 0x85ebca6b) >>> 0;
+    hashC = Math.imul(hashC ^ (code * 17), 0xc2b2ae35) >>> 0;
+    hashD = Math.imul(hashD ^ (code + hashA), 0x27d4eb2d) >>> 0;
+  }
+
+  const hex = [hashA, hashB, hashC, hashD]
+    .map((value) => value.toString(16).padStart(8, '0'))
+    .join('');
+
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
 
 function hasValidLocation(coords) {
   return (
@@ -310,12 +331,15 @@ function DriverList({ drivers, loading }) {
 }
 
 export default function OwnerDashboard() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const [fleet, setFleet] = useState(DEFAULT_FLEET);
   const [inviteCode, setInviteCode] = useState(null);
   const [drivers, setDrivers] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [driversLoading, setDriversLoading] = useState(true);
+  const [fleetSetupName, setFleetSetupName] = useState('');
+  const [isSettingUpFleet, setIsSettingUpFleet] = useState(false);
+  const [hasEnsuredFleet, setHasEnsuredFleet] = useState(false);
   const [toast, setToast] = useState(null);
   const previousDriversRef = useRef([]);
   const previousAlertsRef = useRef([]);
@@ -325,11 +349,26 @@ export default function OwnerDashboard() {
     setTimeout(() => setToast(null), 3500);
   }, []);
 
-  // Use hardcoded fleet ID for now until database issues are resolved
-  const derivedFleetId = SAFAR_FLEET_ID;
+  const derivedFleetId = useMemo(() => {
+    if (!user?.id) {
+      return null;
+    }
 
-  // Ensure fleet exists for this email
+    return createFleetIdFromOwnerId(user.id);
+  }, [user?.id]);
+
+  const isFleetSetupPending =
+    Boolean(derivedFleetId) &&
+    fleet.id === derivedFleetId &&
+    (!inviteCode || !fleet.name || fleet.name === 'My Fleet');
+
   useEffect(() => {
+    if (!derivedFleetId) {
+      return;
+    }
+
+    setHasEnsuredFleet(false);
+
     const ensureFleetExists = async () => {
       try {
         const response = await fetch('/api/fleet-dashboard', {
@@ -340,23 +379,30 @@ export default function OwnerDashboard() {
           body: JSON.stringify({
             fleetId: derivedFleetId,
             ensureExists: true,
-            ownerEmail: 'test@example.com',
+            ownerEmail: user?.primaryEmailAddress?.emailAddress || null,
           }),
         });
 
         if (!response.ok) {
           console.warn('Failed to ensure fleet exists');
+          return;
         }
+
+        setHasEnsuredFleet(true);
       } catch (error) {
         console.warn('Error ensuring fleet exists:', error);
       }
     };
 
     ensureFleetExists();
-  }, [derivedFleetId]);
+  }, [derivedFleetId, user?.primaryEmailAddress?.emailAddress]);
 
   const fetchDashboardData = useCallback(
     async ({ silent = false } = {}) => {
+      if (!derivedFleetId) {
+        return;
+      }
+
       if (!silent) {
         setDriversLoading(true);
       }
@@ -427,22 +473,98 @@ export default function OwnerDashboard() {
         }
       }
     },
-    [showToast]
+    [derivedFleetId, showToast]
   );
 
   useEffect(() => {
+    if (!derivedFleetId || !hasEnsuredFleet) {
+      return;
+    }
+
     fetchDashboardData();
-  }, [derivedFleetId, fetchDashboardData]);
+  }, [derivedFleetId, fetchDashboardData, hasEnsuredFleet]);
 
   useEffect(() => {
+    if (!derivedFleetId || !hasEnsuredFleet) {
+      return;
+    }
+
     const intervalId = setInterval(() => {
       fetchDashboardData({ silent: true });
     }, 10000);
 
     return () => clearInterval(intervalId);
-  }, [derivedFleetId, fetchDashboardData]);
+  }, [derivedFleetId, fetchDashboardData, hasEnsuredFleet]);
 
   const activeCount = drivers.filter((d) => d.is_online).length;
+
+  async function handleCompleteFleetSetup() {
+    const trimmedFleetName = fleetSetupName.trim();
+
+    if (!derivedFleetId) {
+      showToast('Owner account is still loading. Please wait a moment.', 'error');
+      return;
+    }
+
+    if (!trimmedFleetName) {
+      showToast('Please enter a fleet name before continuing.', 'error');
+      return;
+    }
+
+    setIsSettingUpFleet(true);
+
+    try {
+      const updateResponse = await fetch('/api/fleet-dashboard', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fleetId: derivedFleetId,
+          ownerName: trimmedFleetName,
+        }),
+      });
+      const updateResult = await updateResponse.json();
+
+      if (!updateResponse.ok || !updateResult.success) {
+        throw new Error(updateResult.error || 'Could not save fleet name.');
+      }
+
+      const codeResponse = await fetch('/api/generate-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fleetId: derivedFleetId,
+          ownerId: user?.id || null,
+        }),
+      });
+      const codeResult = await codeResponse.json();
+
+      if (!codeResponse.ok || !codeResult.success) {
+        throw new Error(codeResult.error || 'Could not generate invite code.');
+      }
+
+      setFleetSetupName('');
+      showToast('Fleet setup complete. Your invite code is ready.', 'success');
+      await fetchDashboardData();
+    } catch (error) {
+      showToast(error.message || 'Could not complete fleet setup.', 'error');
+    } finally {
+      setIsSettingUpFleet(false);
+    }
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_48%,#fff8f1_100%)]">
+        <div className="rounded-[28px] border border-sky-100 bg-white px-6 py-5 text-sm font-medium text-slate-500 shadow-[0_18px_45px_rgba(15,42,94,0.08)]">
+          Loading your Safar workspace...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_48%,#fff8f1_100%)] font-sans text-slate-900">
@@ -493,6 +615,42 @@ export default function OwnerDashboard() {
       </header>
 
       <main className="relative z-10 mx-auto max-w-6xl px-4 py-6 pb-10 sm:px-6 lg:px-8">
+        {isFleetSetupPending ? (
+          <section className="mb-6 rounded-[34px] border border-orange-200 bg-[linear-gradient(135deg,#fff7ed_0%,#ffffff_100%)] p-5 shadow-[0_24px_70px_rgba(15,42,94,0.10)] sm:p-6 lg:p-8">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:items-center">
+              <div className="max-w-2xl">
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-orange-500">Fleet Setup</p>
+                <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+                  Create your fleet name and generate a fresh invite code.
+                </h1>
+                <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
+                  This email does not have a completed fleet yet. Set your fleet name once and Safar will create your owner workspace with a unique driver invite code.
+                </p>
+              </div>
+
+              <div className="rounded-[30px] border border-orange-200 bg-white p-5 shadow-[0_18px_55px_rgba(15,42,94,0.08)]">
+                <label className="block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  Fleet Name
+                </label>
+                <input
+                  type="text"
+                  value={fleetSetupName}
+                  onChange={(event) => setFleetSetupName(event.target.value)}
+                  placeholder="Parth Tiwari Fleet"
+                  className="mt-3 w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:bg-white"
+                />
+                <button
+                  onClick={handleCompleteFleetSetup}
+                  disabled={isSettingUpFleet}
+                  className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSettingUpFleet ? 'Creating fleet...' : 'Save Name and Generate Code'}
+                </button>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
         <section className="rounded-[34px] border border-sky-100 bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_62%,#fff7ed_100%)] p-5 shadow-[0_24px_70px_rgba(15,42,94,0.10)] sm:p-6 lg:p-8">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.95fr)] lg:items-center">
             <div className="max-w-2xl">

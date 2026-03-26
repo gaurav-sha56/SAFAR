@@ -184,3 +184,60 @@ export async function POST(request) {
     );
   }
 }
+
+export async function PATCH(request) {
+  try {
+    const body = await request.json();
+    const { fleetId, ownerName } = body;
+
+    if (!fleetId) {
+      return NextResponse.json(
+        { success: false, error: 'fleetId is required.' },
+        { status: 400 }
+      );
+    }
+
+    if (!ownerName || !String(ownerName).trim()) {
+      return NextResponse.json(
+        { success: false, error: 'ownerName is required.' },
+        { status: 400 }
+      );
+    }
+
+    const supabase = createServerClient();
+
+    const { data: updatedFleet, error: updateError } = await supabase
+      .from('fleets')
+      .update({
+        owner_name: String(ownerName).trim(),
+      })
+      .eq('id', fleetId)
+      .select('id, owner_name, invite_code')
+      .single();
+
+    if (updateError || !updatedFleet) {
+      console.error('Fleet update error:', updateError);
+      return NextResponse.json(
+        { success: false, error: 'Failed to update fleet name.' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        fleet: {
+          id: updatedFleet.id,
+          name: updatedFleet.owner_name || 'My Fleet',
+          inviteCode: updatedFleet.invite_code,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Unhandled error in /api/fleet-dashboard PATCH:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error.' },
+      { status: 500 }
+    );
+  }
+}
