@@ -2,6 +2,15 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 import { buildOfflineAlerts } from '@/lib/safety';
 
+function formatSupabaseError(error, fallbackMessage) {
+  if (!error) {
+    return fallbackMessage;
+  }
+
+  const parts = [error.message, error.details, error.hint].filter(Boolean);
+  return parts.length ? parts.join(' | ') : fallbackMessage;
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -126,7 +135,7 @@ export async function POST(request) {
     if (checkError && checkError.code !== 'PGRST116') {
       console.error('Fleet existence check error:', checkError);
       return NextResponse.json(
-        { success: false, error: 'Failed to check fleet existence.' },
+        { success: false, error: formatSupabaseError(checkError, 'Failed to check fleet existence.') },
         { status: 500 }
       );
     }
@@ -135,18 +144,18 @@ export async function POST(request) {
     if (!existingFleet) {
       const { data: newFleet, error: createError } = await supabase
         .from('fleets')
-        .insert({
+        .upsert({
           id: fleetId,
           owner_name: 'My Fleet',
           invite_code: null,
-        })
+        }, { onConflict: 'id' })
         .select('id, owner_name, invite_code')
         .single();
 
       if (createError) {
         console.error('Fleet creation error:', createError);
         return NextResponse.json(
-          { success: false, error: 'Failed to create fleet.' },
+          { success: false, error: formatSupabaseError(createError, 'Failed to create fleet.') },
           { status: 500 }
         );
       }
