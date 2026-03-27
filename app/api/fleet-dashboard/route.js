@@ -20,6 +20,10 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const fleetId = searchParams.get('fleetId');
+    const alertLimitParam = Number.parseInt(searchParams.get('alertLimit') || '12', 10);
+    const alertLimit = Number.isFinite(alertLimitParam)
+      ? Math.min(Math.max(alertLimitParam, 1), 200)
+      : 12;
 
     if (!fleetId) {
       return NextResponse.json(
@@ -50,7 +54,7 @@ export async function GET(request) {
         .select('id, driver_id, driver_name, driver_phone, type, severity, message, meta, created_at')
         .eq('fleet_id', fleetId)
         .order('created_at', { ascending: false })
-        .limit(12),
+        .limit(alertLimit),
     ]);
 
     if (fleetError || !fleet) {
@@ -97,7 +101,7 @@ export async function GET(request) {
         drivers: drivers ?? [],
         alerts: [...normalizedAlerts, ...offlineAlerts]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-          .slice(0, 12),
+          .slice(0, alertLimit),
       },
     });
   } catch (error) {

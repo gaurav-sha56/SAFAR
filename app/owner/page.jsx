@@ -1,790 +1,237 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { UserButton, useUser } from '@clerk/nextjs';
+import Link from 'next/link';
+import { useState } from 'react';
+import {
+  AlertBadge,
+  EmptyState,
+  FleetSetupPanel,
+  OwnerShell,
+  StatusBadge,
+  SurfaceCard,
+  WorkspaceError,
+  WorkspaceLoading,
+  getDriverCoords,
+  getDriverMapHref,
+  hasValidLocation,
+  useOwnerWorkspaceData,
+} from './_components/owner-shared';
 
-const DEFAULT_FLEET = {
-  id: '',
-  name: '',
-};
+function QuickStat({ label, value, tone = 'sky' }) {
+  const styles = {
+    sky: 'border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] text-sky-700',
+    orange: 'border-orange-200 bg-[linear-gradient(135deg,#fff7ed_0%,#ffffff_100%)] text-orange-600',
+    emerald: 'border-emerald-200 bg-[linear-gradient(135deg,#ecfdf5_0%,#ffffff_100%)] text-emerald-700',
+  };
 
-function createFleetIdFromOwnerId(ownerId) {
-  const seed = String(ownerId || 'guest-owner');
-  let hashA = 0x811c9dc5;
-  let hashB = 0x01000193;
-  let hashC = 0x9e3779b9;
-  let hashD = 0x85ebca6b;
-
-  for (let i = 0; i < seed.length; i += 1) {
-    const code = seed.charCodeAt(i);
-    hashA = Math.imul(hashA ^ code, 0x01000193) >>> 0;
-    hashB = Math.imul(hashB ^ (code + i), 0x85ebca6b) >>> 0;
-    hashC = Math.imul(hashC ^ (code * 17), 0xc2b2ae35) >>> 0;
-    hashD = Math.imul(hashD ^ (code + hashA), 0x27d4eb2d) >>> 0;
-  }
-
-  const hex = [hashA, hashB, hashC, hashD]
-    .map((value) => value.toString(16).padStart(8, '0'))
-    .join('');
-
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
-}
-
-function hasValidLocation(coords) {
   return (
-    coords &&
-    typeof coords.lat === 'number' &&
-    Number.isFinite(coords.lat) &&
-    typeof coords.lng === 'number' &&
-    Number.isFinite(coords.lng)
-  );
-}
-
-function getDriverMapHref(coords) {
-  return `https://www.openstreetmap.org/?mlat=${coords.lat}&mlon=${coords.lng}#map=16/${coords.lat}/${coords.lng}`;
-}
-
-function QuickStat({ label, value, accent = false }) {
-  return (
-    <div
-      className={`min-h-[142px] rounded-[28px] border px-5 py-5 shadow-[0_18px_55px_rgba(15,42,94,0.08)] transition-all duration-200 hover:-translate-y-1 ${
-        accent
-          ? 'border-orange-200 bg-[linear-gradient(135deg,#fff7ed_0%,#ffffff_100%)]'
-          : 'border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)]'
-      }`}
-    >
-      <p className={`text-[11px] font-semibold uppercase tracking-[0.24em] ${accent ? 'text-orange-700' : 'text-sky-700'}`}>
-        {label}
-      </p>
-      <p className="mt-3 text-3xl font-black tracking-tight text-slate-950">{value}</p>
+    <div className={`rounded-[26px] border px-5 py-5 shadow-[0_18px_45px_rgba(15,42,94,0.06)] ${styles[tone] || styles.sky}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.26em]">{label}</p>
+      <p className="mt-4 text-4xl font-black tracking-tight text-slate-950">{value}</p>
     </div>
   );
 }
 
-function AlertBadge({ severity }) {
-  const styles = {
-    high: 'border-red-200 bg-red-50 text-red-700',
-    medium: 'border-amber-200 bg-amber-50 text-amber-700',
-    low: 'border-sky-200 bg-sky-50 text-sky-700',
+function InviteCodeCard({ code }) {
+  const [copied, setCopied] = useState(false);
+  const digits = code ? String(code).padStart(5, '0').split('') : ['-', '-', '-', '-', '-'];
+
+  const handleCopy = async () => {
+    if (!code) return;
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
   };
 
   return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${styles[severity] || styles.medium}`}>
-      {severity || 'Alert'}
-    </span>
-  );
-}
-
-function SafetyAlerts({ alerts }) {
-  if (!alerts.length) {
-    return (
-      <div className="rounded-[32px] border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-5 shadow-[0_18px_60px_rgba(15,42,94,0.08)] sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-xs font-semibold tracking-widest text-sky-700 uppercase">Safety Alerts</h2>
-            <p className="mt-1 text-sm text-stone-500">No active risk events right now. Fleet looks stable.</p>
-          </div>
-          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            All clear
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-[32px] border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-5 shadow-[0_18px_60px_rgba(15,42,94,0.08)] sm:p-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <SurfaceCard className="p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xs font-semibold tracking-widest text-sky-700 uppercase">Safety Alerts</h2>
-          <p className="mt-1 text-sm text-stone-600">Industry-style warning feed for speed, braking, and device connectivity.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Fleet Invite Code</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500">Share this stable code with every driver who needs to connect to your fleet.</p>
         </div>
-        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700">
-          <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-          {alerts.length} active
+        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          Stable code
         </span>
       </div>
 
-      <div className="mt-5 space-y-3">
-        {alerts.slice(0, 6).map((alert) => (
-          <div key={alert.id} className="rounded-[24px] border border-sky-100 bg-white p-4 shadow-[0_10px_30px_rgba(15,42,94,0.05)]">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-stone-800">{alert.driverName || 'Driver Alert'}</p>
-                  <AlertBadge severity={alert.severity} />
-                </div>
-                <p className="mt-2 text-sm leading-6 text-stone-600">{alert.message}</p>
-                {alert.driverPhone ? (
-                  <p className="mt-2 text-xs text-stone-400">{alert.driverPhone}</p>
-                ) : null}
-              </div>
-              <p className="text-xs text-stone-400">
-                {alert.createdAt ? new Date(alert.createdAt).toLocaleString('en-IN') : 'Just now'}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function CodeDisplay({ code }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    if (!code) {
-      return;
-    }
-
-    await navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const digits = code ? String(code).padStart(5, '0').split('') : ['-', '-', '-', '-', '-'];
-
-  return (
-    <div className="rounded-[32px] border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-5 shadow-[0_18px_60px_rgba(15,42,94,0.08)] sm:p-8">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-xs font-semibold tracking-widest text-sky-700 uppercase">
-            Fleet Invite Code
-          </h2>
-          <p className="text-stone-500 text-sm mt-1">Share this fixed code with every driver in your fleet</p>
-        </div>
-        <div className="hidden sm:flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-          Stable code
-        </div>
-      </div>
-
-      <div className="mb-6 grid grid-cols-5 gap-2 sm:gap-3">
-        {digits.map((digit, i) => (
+      <div className="mt-6 grid grid-cols-5 gap-2 sm:gap-3">
+        {digits.map((digit, index) => (
           <div
-            key={i}
-            className="flex aspect-square items-center justify-center rounded-2xl border-2 border-orange-200 bg-[linear-gradient(180deg,#fffaf5_0%,#ffffff_100%)] text-2xl font-black tracking-[0.14em] text-slate-950 transition-all duration-300 min-[420px]:text-3xl sm:text-5xl"
+            key={`${digit}-${index}`}
+            className="flex aspect-square items-center justify-center rounded-2xl border-2 border-orange-200 bg-[linear-gradient(180deg,#fffaf5_0%,#ffffff_100%)] text-3xl font-black tracking-[0.14em] text-slate-950 shadow-[0_10px_24px_rgba(249,115,22,0.08)] sm:text-5xl"
           >
             {digit}
           </div>
         ))}
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-xs leading-5 text-stone-400">
-          {code ? 'This fleet uses one stable invite code for all linked drivers' : 'No invite code found for this fleet'}
-        </span>
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs leading-5 text-slate-400">
+          {code ? 'This fleet uses one stable invite code for all linked drivers.' : 'No invite code is available yet.'}
+        </p>
         <button
           onClick={handleCopy}
           disabled={!code}
-          className="flex items-center gap-1.5 self-start text-sm text-stone-500 transition-colors duration-150 hover:text-sky-700 disabled:opacity-30 sm:self-auto"
+          className="inline-flex items-center gap-2 self-start text-sm font-semibold text-slate-500 transition hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {copied ? (
-            <>
-              <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="text-green-500 font-medium">Copied</span>
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              Copy code
-            </>
-          )}
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          {copied ? 'Copied' : 'Copy code'}
         </button>
       </div>
-    </div>
+    </SurfaceCard>
   );
 }
 
-function StatusBadge({ status }) {
-  const map = {
-    active: { color: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', label: 'Active' },
-    idle: { color: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-400', label: 'Idle' },
-    offline: { color: 'bg-stone-100 text-stone-500 border-stone-200', dot: 'bg-stone-400', label: 'Offline' },
-  };
-  const s = map[status] || map.offline;
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${s.color}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${s.dot} ${status === 'active' ? 'animate-pulse' : ''}`} />
-      {s.label}
-    </span>
-  );
-}
-
-function DriverRow({ driver, index }) {
-  const coords =
-    typeof driver.last_lat === 'number' && typeof driver.last_lng === 'number'
-      ? { lat: driver.last_lat, lng: driver.last_lng }
-      : null;
-  const hasLocation = hasValidLocation(coords);
-  const mapHref = hasLocation ? getDriverMapHref(coords) : null;
-  const rowClasses = `group flex w-full flex-col gap-4 rounded-[24px] border p-4 text-left transition-colors duration-150 sm:flex-row sm:items-center ${
-    hasLocation
-      ? 'border-sky-100 hover:border-orange-200 hover:bg-orange-50/40 cursor-pointer'
-      : 'border-transparent hover:border-sky-100 hover:bg-sky-50/40'
-  }`;
+function RecentDriversCard({ drivers }) {
+  const recentDrivers = drivers.slice(0, 5);
 
   return (
-    <a
-      href={mapHref || undefined}
-      target={hasLocation ? '_blank' : undefined}
-      rel={hasLocation ? 'noopener noreferrer' : undefined}
-      className={rowClasses}
-      style={{ animationDelay: `${index * 60}ms` }}
-      aria-disabled={!hasLocation}
-    >
-      <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-sky-100">
-        <span className="text-sm font-bold text-sky-700">
-          {driver.name ? driver.name.charAt(0).toUpperCase() : driver.phone.slice(-2)}
-        </span>
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-semibold text-stone-800 truncate">{driver.name || 'Driver'}</p>
-          <StatusBadge status={driver.is_online ? 'active' : 'offline'} />
+    <SurfaceCard className="overflow-hidden">
+      <div className="flex flex-col gap-4 border-b border-sky-100 px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Recent Drivers</p>
+          <p className="mt-2 text-sm text-slate-500">Top linked drivers with quick status, phone, and map access.</p>
         </div>
-        <p className="text-xs text-stone-400 mt-0.5">{driver.phone}</p>
+        <Link href="/owner/drivers" className="inline-flex items-center rounded-full border border-sky-100 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-orange-200 hover:bg-orange-50 hover:text-slate-900">
+          View all drivers
+        </Link>
       </div>
 
-      <div className="w-full flex-shrink-0 text-left sm:w-auto sm:text-right">
-        {hasLocation ? (
-          <>
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-sky-700">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Open live map
-            </span>
-            <p className="text-xs text-stone-400 mt-0.5">
-              {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
-            </p>
-          </>
-        ) : (
-          <span className="text-xs text-stone-300">Waiting for location from app</span>
-        )}
-        <p className="text-xs text-stone-300 mt-0.5">
-          Last seen {driver.last_seen ? new Date(driver.last_seen).toLocaleString('en-IN') : 'Not available'}
-        </p>
-      </div>
+      {!recentDrivers.length ? (
+        <EmptyState title="No drivers connected yet" description="Once drivers join with your invite code, their latest status and phone details will appear here." />
+      ) : (
+        <div className="divide-y divide-sky-50 px-3 py-3">
+          {recentDrivers.map((driver) => {
+            const coords = getDriverCoords(driver);
+            const hasLocation = hasValidLocation(coords);
+            return (
+              <div key={driver.id} className="flex flex-col gap-4 rounded-[22px] px-3 py-4 transition hover:bg-sky-50/60 md:flex-row md:items-center md:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-sky-100 text-sm font-bold text-sky-700">
+                    {(driver.name || driver.phone || 'D').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-slate-900">{driver.name || 'Driver'}</p>
+                      <StatusBadge status={driver.is_online ? 'active' : 'offline'} />
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500">{driver.phone}</p>
+                  </div>
+                </div>
 
-      <div className="flex h-9 w-9 items-center justify-center self-end rounded-full bg-sky-50 text-stone-400 transition-colors group-hover:bg-white group-hover:text-sky-700 sm:self-auto">
-        {hasLocation ? (
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        ) : (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        )}
-      </div>
-    </a>
-  );
-}
-
-function DriverList({ drivers, loading }) {
-  if (loading) {
-    return (
-      <div className="space-y-2 py-2">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center gap-4 rounded-xl p-4 animate-pulse">
-            <div className="w-10 h-10 bg-stone-200 rounded-full" />
-            <div className="flex-1 space-y-2">
-              <div className="h-3 bg-stone-200 rounded w-1/3" />
-              <div className="h-3 bg-stone-100 rounded w-1/5" />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (!drivers.length) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="w-14 h-14 bg-stone-100 rounded-2xl flex items-center justify-center mb-4">
-          <svg className="w-7 h-7 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </div>
-        <p className="text-sm font-medium text-stone-400">No drivers yet</p>
-        <p className="text-xs text-stone-300 mt-1">Share the invite code above to get started</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="divide-y divide-sky-50">
-      {drivers.map((driver, i) => (
-        <DriverRow key={driver.id} driver={driver} index={i} />
-      ))}
-    </div>
-  );
-}
-
-export default function OwnerDashboard() {
-  const { user, isLoaded } = useUser();
-  const [fleet, setFleet] = useState(DEFAULT_FLEET);
-  const [inviteCode, setInviteCode] = useState(null);
-  const [drivers, setDrivers] = useState([]);
-  const [alerts, setAlerts] = useState([]);
-  const [driversLoading, setDriversLoading] = useState(true);
-  const [fleetSetupName, setFleetSetupName] = useState('');
-  const [isSettingUpFleet, setIsSettingUpFleet] = useState(false);
-  const [hasEnsuredFleet, setHasEnsuredFleet] = useState(false);
-  const [fleetEnsureError, setFleetEnsureError] = useState('');
-  const [toast, setToast] = useState(null);
-  const previousDriversRef = useRef([]);
-  const previousAlertsRef = useRef([]);
-
-  const showToast = useCallback((message, type = 'info') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3500);
-  }, []);
-
-  const derivedFleetId = useMemo(() => {
-    if (!user?.id) {
-      return null;
-    }
-
-    return createFleetIdFromOwnerId(user.id);
-  }, [user?.id]);
-
-  const isFleetSetupPending =
-    hasEnsuredFleet &&
-    Boolean(derivedFleetId) &&
-    fleet.id === derivedFleetId &&
-    (!fleet.name || fleet.name === 'My Fleet');
-
-  const ensureFleetExists = useCallback(async () => {
-    if (!derivedFleetId) {
-      return;
-    }
-
-    setHasEnsuredFleet(false);
-    setFleetEnsureError('');
-
-    try {
-      const response = await fetch('/api/fleet-dashboard', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fleetId: derivedFleetId,
-          ensureExists: true,
-          ownerEmail: user?.primaryEmailAddress?.emailAddress || null,
-        }),
-      });
-      const result = await response.json().catch(() => null);
-
-      if (!response.ok || !result?.success) {
-        const nextError = result?.error || 'Could not prepare your fleet workspace.';
-        setFleetEnsureError(nextError);
-        console.warn('Failed to ensure fleet exists:', nextError);
-        return;
-      }
-
-      setHasEnsuredFleet(true);
-    } catch (error) {
-      const nextError = error?.message || 'Could not prepare your fleet workspace.';
-      setFleetEnsureError(nextError);
-      console.warn('Error ensuring fleet exists:', error);
-    }
-  }, [derivedFleetId, user?.primaryEmailAddress?.emailAddress]);
-
-  useEffect(() => {
-    ensureFleetExists();
-  }, [ensureFleetExists]);
-
-  const fetchDashboardData = useCallback(
-    async ({ silent = false } = {}) => {
-      if (!derivedFleetId) {
-        return;
-      }
-
-      if (!silent) {
-        setDriversLoading(true);
-      }
-
-      try {
-        const response = await fetch(
-          `/api/fleet-dashboard?fleetId=${encodeURIComponent(derivedFleetId)}`,
-          { cache: 'no-store' }
-        );
-        const result = await response.json();
-
-        if (!response.ok || !result.success) {
-          throw new Error(result.error || 'Fleet data could not be loaded.');
-        }
-
-        setFleet({
-          id: result.data.fleet.id,
-          name: result.data.fleet.name || 'My Fleet',
-        });
-        setInviteCode(result.data.fleet.inviteCode || null);
-        const incomingDrivers = result.data.drivers || [];
-
-        if (silent && previousDriversRef.current.length) {
-          const previousMap = new Map(previousDriversRef.current.map((driver) => [driver.id, driver]));
-
-          for (const driver of incomingDrivers) {
-            const previousDriver = previousMap.get(driver.id);
-
-            if (!previousDriver) {
-              showToast(`New driver joined: ${driver.name || driver.phone}`, 'success');
-              continue;
-            }
-
-            if (previousDriver.is_online && !driver.is_online) {
-              showToast(`Tracking stopped: ${driver.name || driver.phone} is now offline.`, 'error');
-            }
-
-            if (!previousDriver.is_online && driver.is_online) {
-              showToast(`Tracking resumed: ${driver.name || driver.phone} is live again.`, 'success');
-            }
-          }
-        }
-
-        previousDriversRef.current = incomingDrivers;
-        setDrivers(incomingDrivers);
-        const incomingAlerts = result.data.alerts || [];
-
-        if (silent && previousAlertsRef.current.length) {
-          const previousAlertIds = new Set(previousAlertsRef.current.map((alert) => alert.id));
-
-          for (const alert of incomingAlerts) {
-            if (!previousAlertIds.has(alert.id)) {
-              showToast(alert.message, alert.severity === 'high' ? 'error' : 'info');
-              break;
-            }
-          }
-        }
-
-        previousAlertsRef.current = incomingAlerts;
-        setAlerts(incomingAlerts);
-      } catch (error) {
-        if (!silent) {
-          showToast(error.message || 'Fleet data could not be loaded.', 'error');
-        }
-      } finally {
-        if (!silent) {
-          setDriversLoading(false);
-        }
-      }
-    },
-    [derivedFleetId, showToast]
-  );
-
-  useEffect(() => {
-    if (!derivedFleetId || !hasEnsuredFleet) {
-      return;
-    }
-
-    fetchDashboardData();
-  }, [derivedFleetId, fetchDashboardData, hasEnsuredFleet]);
-
-  useEffect(() => {
-    if (!derivedFleetId || !hasEnsuredFleet) {
-      return;
-    }
-
-    const intervalId = setInterval(() => {
-      fetchDashboardData({ silent: true });
-    }, 10000);
-
-    return () => clearInterval(intervalId);
-  }, [derivedFleetId, fetchDashboardData, hasEnsuredFleet]);
-
-  const activeCount = drivers.filter((d) => d.is_online).length;
-
-  async function handleCompleteFleetSetup() {
-    const trimmedFleetName = fleetSetupName.trim();
-
-    if (!derivedFleetId) {
-      showToast('Owner account is still loading. Please wait a moment.', 'error');
-      return;
-    }
-
-    if (!trimmedFleetName) {
-      showToast('Please enter a fleet name before continuing.', 'error');
-      return;
-    }
-
-    setIsSettingUpFleet(true);
-
-    try {
-      const updateResponse = await fetch('/api/fleet-dashboard', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fleetId: derivedFleetId,
-          ownerName: trimmedFleetName,
-        }),
-      });
-      const updateResult = await updateResponse.json();
-
-      if (!updateResponse.ok || !updateResult.success) {
-        throw new Error(updateResult.error || 'Could not save fleet name.');
-      }
-
-      const codeResponse = await fetch('/api/generate-code', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fleetId: derivedFleetId,
-          ownerId: user?.id || null,
-        }),
-      });
-      const codeResult = await codeResponse.json();
-
-      if (!codeResponse.ok || !codeResult.success) {
-        throw new Error(codeResult.error || 'Could not generate invite code.');
-      }
-
-      setFleetSetupName('');
-      showToast('Fleet setup complete. Your invite code is ready.', 'success');
-      await fetchDashboardData();
-    } catch (error) {
-      showToast(error.message || 'Could not complete fleet setup.', 'error');
-    } finally {
-      setIsSettingUpFleet(false);
-    }
-  }
-
-  if (!isLoaded) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_48%,#fff8f1_100%)]">
-        <div className="rounded-[28px] border border-sky-100 bg-white px-6 py-5 text-sm font-medium text-slate-500 shadow-[0_18px_45px_rgba(15,42,94,0.08)]">
-          Loading your Safar workspace...
-        </div>
-      </div>
-    );
-  }
-
-  if (derivedFleetId && !hasEnsuredFleet && !fleetEnsureError) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_48%,#fff8f1_100%)] px-4">
-        <div className="rounded-[28px] border border-sky-100 bg-white px-6 py-5 text-center text-sm font-medium text-slate-500 shadow-[0_18px_45px_rgba(15,42,94,0.08)]">
-          Preparing your fleet workspace...
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_48%,#fff8f1_100%)] font-sans text-slate-900">
-      <header className="relative overflow-hidden border-b border-sky-100 bg-white/95 backdrop-blur-sm">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(14,165,233,0.16),transparent_24%),radial-gradient(circle_at_left,rgba(249,115,22,0.12),transparent_24%)]" />
-        <div className="relative mx-auto max-w-6xl px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-3 sm:gap-4">
-              <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-600 shadow-[0_14px_30px_rgba(14,165,233,0.28)]">
-                <svg className="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                </svg>
+                <div className="flex flex-col gap-2 text-left md:items-end md:text-right">
+                  {hasLocation ? (
+                    <Link href={getDriverMapHref(coords)} target="_blank" className="text-sm font-semibold text-sky-700 transition hover:text-orange-600">
+                      Open live map
+                    </Link>
+                  ) : (
+                    <p className="text-sm font-medium text-slate-300">Waiting for location</p>
+                  )}
+                  <p className="text-xs text-slate-400">
+                    Last seen {driver.last_seen ? new Date(driver.last_seen).toLocaleString('en-IN') : 'Not available'}
+                  </p>
+                </div>
               </div>
+            );
+          })}
+        </div>
+      )}
+    </SurfaceCard>
+  );
+}
+
+function RecentAlertsCard({ alerts }) {
+  const recentAlerts = alerts.slice(0, 5);
+
+  return (
+    <SurfaceCard className="overflow-hidden">
+      <div className="flex flex-col gap-4 border-b border-sky-100 px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Recent Alerts</p>
+          <p className="mt-2 text-sm text-slate-500">Latest alert feed for overspeed, SOS, offline activity, and fleet safety events.</p>
+        </div>
+        <Link href="/owner/alerts" className="inline-flex items-center rounded-full border border-sky-100 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-orange-200 hover:bg-orange-50 hover:text-slate-900">
+          View all alerts
+        </Link>
+      </div>
+
+      {!recentAlerts.length ? (
+        <EmptyState title="No active alerts right now" description="Your latest safety events will show up here so the owner can react quickly." />
+      ) : (
+        <div className="space-y-3 px-4 py-4">
+          {recentAlerts.map((alert) => (
+            <div key={alert.id} className="rounded-[22px] border border-sky-100 bg-white p-4 shadow-[0_12px_30px_rgba(15,42,94,0.04)]">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-semibold text-slate-900">{alert.driverName || 'Fleet alert'}</p>
+                    <AlertBadge severity={alert.severity} />
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{alert.message}</p>
+                </div>
+                <p className="text-xs text-slate-400">{alert.createdAt ? new Date(alert.createdAt).toLocaleString('en-IN') : 'Just now'}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </SurfaceCard>
+  );
+}
+
+export default function OwnerDashboardPage() {
+  const workspace = useOwnerWorkspaceData();
+  const activeDrivers = workspace.drivers.filter((driver) => driver.is_online).length;
+  const highAlerts = workspace.alerts.filter((alert) => alert.severity === 'high').length;
+
+  return (
+    <OwnerShell section="dashboard" fleet={workspace.fleet} user={workspace.user} toast={workspace.toast}>
+      {!workspace.isLoaded ? (
+        <WorkspaceLoading />
+      ) : workspace.fleetEnsureError ? (
+        <WorkspaceError message={workspace.fleetEnsureError} onRetry={workspace.ensureFleetExists} />
+      ) : workspace.isFleetSetupPending ? (
+        <FleetSetupPanel
+          fleetSetupName={workspace.fleetSetupName}
+          setFleetSetupName={workspace.setFleetSetupName}
+          onSubmit={workspace.handleCompleteFleetSetup}
+          isSettingUpFleet={workspace.isSettingUpFleet}
+        />
+      ) : (
+        <div className="space-y-6">
+          <SurfaceCard className="p-6 sm:p-8">
+            <div className="grid gap-8 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.9fr)] xl:items-end">
               <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-3xl font-extrabold tracking-tighter text-navy sm:text-4xl">SAFAR</span>
-                  <span className="rounded-full border border-sky-100 bg-sky-50 px-2.5 py-1 text-[10px] font-semibold tracking-[0.22em] text-sky-700 uppercase">
-                    Fleet Safety
-                  </span>
-                </div>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-                  Live fleet overview, fixed invite code access, and fast driver tracking for day-to-day cab operations.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex w-full items-center justify-between gap-3 rounded-[28px] border border-sky-100 bg-white px-4 py-3 shadow-[0_18px_45px_rgba(15,42,94,0.08)] sm:w-auto sm:min-w-[320px]">
-              <div className="min-w-0 flex-1 text-left sm:text-right">
-                <p className="text-sm font-semibold text-slate-900">{fleet.name || 'New Fleet'}</p>
-                <p className="truncate text-xs text-slate-500">{user?.primaryEmailAddress?.emailAddress || 'Fleet Owner'}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-orange-100 text-sm font-bold text-orange-700">
-                  {(fleet.name || 'N').charAt(0)}
-                </div>
-                <UserButton
-                  appearance={{
-                    elements: {
-                      avatarBox: 'h-9 w-9',
-                    },
-                  }}
-                  afterSignOutUrl="/"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="relative z-10 mx-auto max-w-6xl px-4 py-6 pb-10 sm:px-6 lg:px-8">
-        {fleetEnsureError ? (
-          <section className="mb-6 rounded-[30px] border border-red-200 bg-red-50/80 p-5 shadow-[0_18px_45px_rgba(15,42,94,0.08)] sm:p-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-red-600">Workspace Error</p>
-            <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950">We could not prepare your fleet yet.</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-              {fleetEnsureError}
-            </p>
-            <button
-              onClick={ensureFleetExists}
-              className="mt-4 inline-flex items-center justify-center rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              Retry fleet setup
-            </button>
-          </section>
-        ) : null}
-
-        {isFleetSetupPending ? (
-          <section className="mb-6 rounded-[34px] border border-orange-200 bg-[linear-gradient(135deg,#fff7ed_0%,#ffffff_100%)] p-5 shadow-[0_24px_70px_rgba(15,42,94,0.10)] sm:p-6 lg:p-8">
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:items-center">
-              <div className="max-w-2xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-orange-500">Fleet Setup</p>
-                <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
-                  Create your fleet name and generate a fresh invite code.
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-orange-500">Owner Dashboard</p>
+                <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
+                  Keep your fleet, drivers, alerts, and live routes under one control center.
                 </h1>
-                <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
-                  This email does not have a completed fleet yet. Set your fleet name once and Safar will create your owner workspace with a unique driver invite code.
+                <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600">
+                  Monitor recent driver activity, scan emergency alerts, and move straight into maps or SOS actions without losing context.
                 </p>
               </div>
 
-              <div className="rounded-[30px] border border-orange-200 bg-white p-5 shadow-[0_18px_55px_rgba(15,42,94,0.08)]">
-                <label className="block text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Fleet Name
-                </label>
-                <input
-                  type="text"
-                  value={fleetSetupName}
-                  onChange={(event) => setFleetSetupName(event.target.value)}
-                  placeholder="Parth Tiwari Fleet"
-                  className="mt-3 w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:bg-white"
-                />
-                <button
-                  onClick={handleCompleteFleetSetup}
-                  disabled={isSettingUpFleet}
-                  className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {isSettingUpFleet ? 'Creating fleet...' : 'Save Name and Generate Code'}
-                </button>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <QuickStat label="Total Drivers" value={workspace.drivers.length} />
+                <QuickStat label="Active Now" value={activeDrivers} tone="orange" />
+                <QuickStat label="High Alerts" value={highAlerts} />
+                <QuickStat label="Status" value="Live" tone="emerald" />
               </div>
             </div>
-          </section>
-        ) : null}
+          </SurfaceCard>
 
-        <section className="rounded-[34px] border border-sky-100 bg-[linear-gradient(135deg,#ffffff_0%,#f8fbff_62%,#fff7ed_100%)] p-5 shadow-[0_24px_70px_rgba(15,42,94,0.10)] sm:p-6 lg:p-8">
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.95fr)] lg:items-center">
-            <div className="max-w-2xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-orange-500">Owner Dashboard</p>
-              <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">
-                Manage your fleet with a cleaner live overview.
-              </h1>
-              <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
-                Review active drivers, monitor safety alerts, and keep invite access ready from one professional workspace.
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <QuickStat label="Total Drivers" value={drivers.length} />
-              <QuickStat label="Active Now" value={activeCount} accent />
-              <QuickStat label="Fleet ID" value={fleet.id ? fleet.id.slice(-8).toUpperCase() : 'PENDING'} />
-              <div className="rounded-[28px] border border-emerald-200 bg-[linear-gradient(135deg,#ecfdf5_0%,#ffffff_100%)] px-5 py-5 shadow-[0_18px_55px_rgba(15,42,94,0.08)] transition-all duration-200 hover:-translate-y-1">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700">Status</p>
-                <div className="mt-3 flex items-center gap-2 text-xl font-black text-emerald-800">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Live
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]">
-          <div className="xl:sticky xl:top-6 xl:self-start">
-            <CodeDisplay code={inviteCode} />
+          <div className="grid gap-6 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]">
+            <InviteCodeCard code={workspace.inviteCode} />
+            <RecentDriversCard drivers={workspace.drivers} />
           </div>
 
-          <div className="overflow-hidden rounded-[32px] border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] shadow-[0_18px_60px_rgba(15,42,94,0.08)]">
-            <div className="flex flex-col gap-4 border-b border-sky-100 px-5 py-5 sm:px-6 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0">
-                <h2 className="text-xs font-semibold tracking-widest text-sky-700 uppercase">
-                  Linked Drivers
-                </h2>
-                <p className="text-stone-600 text-sm mt-1">
-                  {drivers.length} driver{drivers.length !== 1 ? 's' : ''} in this fleet
-                </p>
-                <p className="text-xs text-stone-400 mt-1">
-                  Smooth live tracking with OpenStreetMap links and quick status refresh.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3 lg:justify-end">
-                <div className="inline-flex items-center gap-2 rounded-full border border-sky-100 bg-white px-3 py-1.5 text-xs font-medium text-slate-500">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  Sync every 10s
-                </div>
-                <button
-                  onClick={() => fetchDashboardData()}
-                  className="inline-flex items-center justify-center gap-1 rounded-full border border-sky-100 bg-white px-4 py-2 text-xs font-medium text-slate-500 transition-colors hover:border-orange-200 hover:text-sky-700"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Refresh
-                </button>
-              </div>
-            </div>
-
-            <div className="px-2 py-2 sm:px-3 sm:py-3">
-              <DriverList drivers={drivers} loading={driversLoading} />
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-6">
-          <SafetyAlerts alerts={alerts} />
-        </section>
-      </main>
-
-      <div
-        className={`fixed bottom-6 right-6 z-50 transition-all duration-300 ${toast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'}`}
-      >
-        {toast && (
-          <div
-            className={`max-w-[calc(100vw-3rem)] rounded-xl border px-4 py-3 text-sm font-medium shadow-lg ${
-              toast.type === 'success'
-                ? 'bg-white border-emerald-200 text-emerald-700'
-                : toast.type === 'error'
-                  ? 'bg-white border-red-200 text-red-600'
-                  : 'bg-white border-stone-200 text-stone-700'
-            }`}
-          >
-            <div className="flex items-start gap-3">
-              {toast.type === 'success' ? (
-                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              )}
-              <span className="break-words">{toast.message}</span>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+          <RecentAlertsCard alerts={workspace.alerts} />
+        </div>
+      )}
+    </OwnerShell>
   );
 }
