@@ -7,13 +7,21 @@
 
 @layer base {
   html {
+    scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
 
   body {
     background-color: rgb(245 245 244);
     color: rgb(28 25 23);
+    text-rendering: optimizeLegibility;
   }
 
   * {

@@ -11,7 +11,7 @@ export default async function SignInPage() {
   const hasClerkKey = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
   return (
     <main className="min-h-screen overflow-hidden bg-[linear-gradient(135deg,#f5f5f4_0%,#fff8ef_48%,#edf5ff_100%)] text-stone-900">
-      <div className="relative mx-auto grid min-h-screen max-w-7xl items-center gap-8 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[1fr_0.95fr] lg:gap-10 lg:px-10">
+      <div className="relative mx-auto grid min-h-screen max-w-7xl items-center gap-10 px-6 py-10 lg:grid-cols-[1fr_0.95fr] lg:px-10">
         <div className="pointer-events-none absolute left-[-7rem] top-[-5rem] h-64 w-64 rounded-full bg-orange-200/35 blur-3xl" />
         <div className="pointer-events-none absolute bottom-[-7rem] right-[-5rem] h-72 w-72 rounded-full bg-sky-200/35 blur-3xl" />
 
@@ -26,10 +26,10 @@ export default async function SignInPage() {
             </div>
           </div>
 
-          <h1 className="mt-8 max-w-xl text-3xl font-black tracking-tight text-navy sm:text-5xl lg:text-6xl">
+          <h1 className="mt-8 max-w-xl text-4xl font-black tracking-tight text-navy sm:text-5xl lg:text-6xl">
             Welcome back to Safar.
           </h1>
-          <p className="mt-5 max-w-xl text-base leading-7 text-stone-600 sm:text-lg sm:leading-8">
+          <p className="mt-5 max-w-xl text-base leading-8 text-stone-600 sm:text-lg">
             Sign in to continue tracking drivers, reviewing alerts, and managing fleet activity from one clean dashboard.
           </p>
 
@@ -45,8 +45,8 @@ export default async function SignInPage() {
           </div>
         </section>
 
-        <section className="relative w-full max-w-lg justify-self-stretch lg:justify-self-end">
-          <div className="rounded-[28px] border border-white/80 bg-white/95 p-5 shadow-[0_30px_90px_rgba(15,42,94,0.14)] backdrop-blur sm:rounded-[32px] sm:p-8">
+        <section className="relative w-full max-w-lg justify-self-end">
+          <div className="rounded-[32px] border border-white/80 bg-white/95 p-6 shadow-[0_30px_90px_rgba(15,42,94,0.14)] backdrop-blur sm:p-8">
             <div className="mb-6">
               <p className="text-sm font-semibold uppercase tracking-[0.3em] text-orange-500">Owner Sign In</p>
               <h2 className="mt-2 text-2xl font-bold text-navy sm:text-3xl">Access your dashboard</h2>

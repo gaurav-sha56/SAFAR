@@ -1,5 +1,6 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
+import MotionLayout from "./motion-layout";
 
 export const metadata = {
   title: "Create Next App",
@@ -10,7 +11,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className="h-full antialiased">
       <ClerkProvider>
-        <body className="min-h-full flex flex-col">{children}</body>
+        <body className="min-h-full flex flex-col">
+          <MotionLayout>{children}</MotionLayout>
+        </body>
       </ClerkProvider>
     </html>
   );
