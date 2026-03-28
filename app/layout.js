@@ -1,6 +1,7 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import MotionLayout from "./motion-layout";
+import PwaRegister from "./pwa-register";
 
 export const metadata = {
   title: "Create Next App",
@@ -8,12 +9,6 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
-  // Register service worker for PWA
-  if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/service-worker.js');
-    });
-  }
   return (
     <html lang="en" className="h-full antialiased">
       <head>
@@ -26,6 +21,7 @@ export default function RootLayout({ children }) {
       </head>
       <ClerkProvider>
         <body className="min-h-full flex flex-col">
+          <PwaRegister />
           <MotionLayout>{children}</MotionLayout>
         </body>
       </ClerkProvider>
