@@ -8,8 +8,22 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
+  // Register service worker for PWA
+  if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/service-worker.js');
+    });
+  }
   return (
     <html lang="en" className="h-full antialiased">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#0ea5e9" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="mobile-web-app-capable" content="yes" />
+      </head>
       <ClerkProvider>
         <body className="min-h-full flex flex-col">
           <MotionLayout>{children}</MotionLayout>
