@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UserButton, useUser } from '@clerk/nextjs';
+import { usePathname } from 'next/navigation';
 
 const DEFAULT_FLEET = { id: '', name: '' };
 
@@ -84,6 +85,124 @@ export function StatusBadge({ status }) {
 
 export function SurfaceCard({ children, className = '' }) {
   return <section className={`rounded-[28px] border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] shadow-[0_18px_55px_rgba(15,42,94,0.08)] ${className}`}>{children}</section>;
+}
+
+export function PwaInstallBanner() {
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [isInstallable, setIsInstallable] = useState(false);
+  const [isInstalling, setIsInstalling] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const syncState = () => {
+      const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      setIsStandalone(standalone);
+      setIsInstallable(Boolean(window.deferredInstallPrompt) && !standalone);
+    };
+
+    const handleInstallable = () => syncState();
+    const handleInstalled = () => {
+      setIsDismissed(true);
+      syncState();
+    };
+
+    syncState();
+    window.addEventListener('safar-installable', handleInstallable);
+    window.addEventListener('safar-installed', handleInstalled);
+    window.addEventListener('focus', syncState);
+
+    return () => {
+      window.removeEventListener('safar-installable', handleInstallable);
+      window.removeEventListener('safar-installed', handleInstalled);
+      window.removeEventListener('focus', syncState);
+    };
+  }, []);
+
+  const handleInstall = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.deferredInstallPrompt) return;
+
+    try {
+      setIsInstalling(true);
+      await window.deferredInstallPrompt.prompt();
+      const choice = await window.deferredInstallPrompt.userChoice;
+      if (choice?.outcome !== 'accepted') {
+        setIsDismissed(true);
+      }
+      window.deferredInstallPrompt = null;
+      setIsInstallable(false);
+    } catch (error) {
+      console.error('Install prompt failed', error);
+    } finally {
+      setIsInstalling(false);
+    }
+  }, []);
+
+  if (isStandalone || !isInstallable || isDismissed) return null;
+
+  return (
+    <div className="mb-6 overflow-hidden rounded-[28px] border border-sky-100 bg-[radial-gradient(circle_at_top_left,#e0f2fe_0%,#ffffff_42%,#fff7ed_100%)] p-5 shadow-[0_18px_55px_rgba(15,42,94,0.08)] sm:p-6">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-[0_16px_32px_rgba(15,23,42,0.22)]">
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Install SAFAR App</p>
+            <h3 className="mt-2 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">Launch faster with a real app-style experience.</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+              Install SAFAR on this device for full-screen access, cleaner navigation, and a smoother owner dashboard on Android.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleInstall}
+            disabled={isInstalling}
+            className="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isInstalling ? 'Preparing install...' : 'Install app'}
+          </button>
+          <button
+            onClick={() => setIsDismissed(true)}
+            className="inline-flex items-center justify-center rounded-full border border-sky-100 bg-white px-4 py-3 text-sm font-semibold text-slate-600 transition hover:border-orange-200 hover:bg-orange-50 hover:text-slate-900"
+          >
+            Maybe later
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StandaloneBottomNav({ section }) {
+  return (
+    <div className="fixed bottom-[max(16px,calc(env(safe-area-inset-bottom)+12px))] left-1/2 z-40 w-[min(94vw,540px)] -translate-x-1/2 lg:hidden">
+      <div className="rounded-[28px] border border-slate-200/70 bg-white/95 px-2 py-2 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+        <nav className="grid grid-cols-5 gap-1">
+          {NAV_ITEMS.map((item) => {
+            const active = item.key === section;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex min-h-[58px] flex-col items-center justify-center rounded-[20px] px-2 py-2 text-[11px] font-semibold transition ${
+                  active ? 'bg-slate-950 text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)]' : 'text-slate-500 hover:bg-sky-50 hover:text-slate-900'
+                }`}
+              >
+                <span className={`mb-1 h-1.5 w-1.5 rounded-full ${active ? 'bg-orange-300' : 'bg-slate-300'}`} />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+    </div>
+  );
 }
 
 export function EmptyState({ title, description }) {
@@ -328,9 +447,31 @@ export function useOwnerWorkspaceData() {
 }
 
 export function OwnerShell({ section, fleet, user, children, toast }) {
+  const pathname = usePathname();
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const syncStandalone = () => {
+      setIsStandalone(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true);
+    };
+
+    syncStandalone();
+    window.addEventListener('focus', syncStandalone);
+    window.addEventListener('safar-installed', syncStandalone);
+
+    return () => {
+      window.removeEventListener('focus', syncStandalone);
+      window.removeEventListener('safar-installed', syncStandalone);
+    };
+  }, []);
+
+  const canGoBack = pathname !== '/owner';
+
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_52%,#fff8f1_100%)] text-slate-900">
-      <header className="sticky top-0 z-30 border-b border-sky-100 bg-white/92 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 border-b border-sky-100 bg-white/92 backdrop-blur-xl app-safe-top">
         <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <Link href="/" className="flex min-w-0 items-center gap-3">
@@ -346,7 +487,19 @@ export function OwnerShell({ section, fleet, user, children, toast }) {
             </Link>
 
             <div className="flex min-w-0 items-center gap-3">
-              <nav className="-mx-1 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1 py-1 sm:flex-wrap sm:overflow-visible sm:px-0">
+              {isStandalone && canGoBack ? (
+                <button
+                  onClick={() => window.history.back()}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-full border border-sky-100 bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-[0_10px_24px_rgba(15,42,94,0.08)] transition hover:border-orange-200 hover:bg-orange-50 hover:text-slate-900 lg:hidden"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
+                  </svg>
+                  Back
+                </button>
+              ) : null}
+
+              <nav className={`-mx-1 min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1 py-1 sm:flex-wrap sm:overflow-visible sm:px-0 ${isStandalone ? 'hidden lg:flex' : 'flex'}`}>
                 {NAV_ITEMS.map((item) => (
                   <Link
                     key={item.href}
@@ -375,7 +528,12 @@ export function OwnerShell({ section, fleet, user, children, toast }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-6 pb-12 sm:px-6 lg:px-8">{children}</main>
+      <main className={`mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 ${isStandalone ? 'pb-32' : 'pb-12'}`}>
+        <PwaInstallBanner />
+        {children}
+      </main>
+
+      {isStandalone ? <StandaloneBottomNav section={section} /> : null}
 
       <div className={`fixed bottom-6 right-6 z-50 transition-all duration-300 ${toast ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-2 opacity-0'}`}>
         {toast ? (

@@ -10,6 +10,7 @@
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background-color: #f8fbff;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -27,6 +28,18 @@
   * {
     box-sizing: border-box;
   }
+}
+
+html.app-standalone,
+body.app-standalone {
+  overscroll-behavior-y: contain;
+  background:
+    radial-gradient(circle at top, rgba(224, 242, 254, 0.72), transparent 35%),
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 52%, #fff8f1 100%);
+}
+
+.app-safe-top {
+  padding-top: env(safe-area-inset-top);
 }
 
 @layer utilities {
@@ -58,4 +71,13 @@
 .driver-row-enter {
   animation: slideIn 0.3s ease-out forwards;
   opacity: 0;
+}
+
+@keyframes pulseHalo {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.18); }
+  50% { box-shadow: 0 0 0 12px rgba(14, 165, 233, 0); }
+}
+
+.pwa-pulse {
+  animation: pulseHalo 2.4s ease-in-out infinite;
 }
