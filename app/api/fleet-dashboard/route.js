@@ -3,6 +3,9 @@ import { createServerClient } from '@/lib/supabase';
 import { buildOfflineAlerts } from '@/lib/safety';
 import { randomInt } from 'node:crypto';
 
+const FLEET_BASE_SELECT = 'id, owner_name, invite_code';
+const FLEET_OWNER_SELECT = `${FLEET_BASE_SELECT}, owner_user_id, owner_email`;
+
 function formatSupabaseError(error, fallbackMessage) {
   if (!error) {
     return fallbackMessage;
@@ -22,30 +25,49 @@ function normalizeOwnerEmail(value) {
   return trimmed || null;
 }
 
+function withFleetIdentity(fleet) {
+  if (!fleet) return null;
+  return {
+    ...fleet,
+    owner_user_id: fleet.owner_user_id ?? null,
+    owner_email: fleet.owner_email ?? null,
+  };
+}
+
+function isOwnerIdentityColumnError(error) {
+  if (!error) return false;
+
+  const combined = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`.toLowerCase();
+  return combined.includes('owner_user_id') || combined.includes('owner_email');
+}
+
 async function findFleetByColumn(supabase, column, value) {
   if (!value) {
-    return { fleet: null, error: null, ambiguous: false };
+    return { fleet: null, error: null, ambiguous: false, schemaMissing: false };
   }
 
   const { data, error } = await supabase
     .from('fleets')
-    .select('id, owner_name, invite_code, owner_user_id, owner_email')
+    .select(FLEET_OWNER_SELECT)
     .eq(column, value)
     .limit(2);
 
   if (error) {
-    return { fleet: null, error, ambiguous: false };
+    if (isOwnerIdentityColumnError(error)) {
+      return { fleet: null, error: null, ambiguous: false, schemaMissing: true };
+    }
+    return { fleet: null, error, ambiguous: false, schemaMissing: false };
   }
 
   if (!data?.length) {
-    return { fleet: null, error: null, ambiguous: false };
+    return { fleet: null, error: null, ambiguous: false, schemaMissing: false };
   }
 
   if (data.length > 1) {
-    return { fleet: null, error: null, ambiguous: true };
+    return { fleet: null, error: null, ambiguous: true, schemaMissing: false };
   }
 
-  return { fleet: data[0], error: null, ambiguous: false };
+  return { fleet: withFleetIdentity(data[0]), error: null, ambiguous: false, schemaMissing: false };
 }
 
 async function backfillFleetOwnerIdentity(supabase, fleet, ownerUserId, ownerEmail) {
@@ -72,49 +94,70 @@ async function backfillFleetOwnerIdentity(supabase, fleet, ownerUserId, ownerEma
     .from('fleets')
     .update(updates)
     .eq('id', fleet.id)
-    .select('id, owner_name, invite_code, owner_user_id, owner_email')
+    .select(FLEET_OWNER_SELECT)
     .single();
 
-  return { fleet: data ?? fleet, error };
+  if (error && isOwnerIdentityColumnError(error)) {
+    return { fleet: withFleetIdentity(fleet), error: null };
+  }
+
+  return { fleet: withFleetIdentity(data ?? fleet), error };
 }
 
 async function resolveFleet(supabase, { fleetId, ownerUserId, ownerEmail }) {
   const normalizedEmail = normalizeOwnerEmail(ownerEmail);
 
   if (fleetId) {
-    const { data: fleetById, error: fleetByIdError } = await supabase
+    let { data: fleetById, error: fleetByIdError } = await supabase
       .from('fleets')
-      .select('id, owner_name, invite_code, owner_user_id, owner_email')
+      .select(FLEET_OWNER_SELECT)
       .eq('id', fleetId)
       .maybeSingle();
+
+    if (fleetByIdError && isOwnerIdentityColumnError(fleetByIdError)) {
+      const fallback = await supabase
+        .from('fleets')
+        .select(FLEET_BASE_SELECT)
+        .eq('id', fleetId)
+        .maybeSingle();
+
+      fleetById = fallback.data;
+      fleetByIdError = fallback.error;
+    }
 
     if (fleetByIdError) {
       return { fleet: null, error: fleetByIdError, ambiguous: false };
     }
 
     if (fleetById) {
-      const { fleet, error } = await backfillFleetOwnerIdentity(supabase, fleetById, ownerUserId, normalizedEmail);
+      const { fleet, error } = await backfillFleetOwnerIdentity(supabase, withFleetIdentity(fleetById), ownerUserId, normalizedEmail);
       return { fleet, error, ambiguous: false };
     }
   }
 
   const ownerUserResult = await findFleetByColumn(supabase, 'owner_user_id', ownerUserId);
   if (ownerUserResult.error || ownerUserResult.ambiguous || ownerUserResult.fleet) {
-    if (ownerUserResult.fleet) {
-      const { fleet, error } = await backfillFleetOwnerIdentity(supabase, ownerUserResult.fleet, ownerUserId, normalizedEmail);
-      return { fleet, error, ambiguous: false };
+      if (ownerUserResult.fleet) {
+        const { fleet, error } = await backfillFleetOwnerIdentity(supabase, ownerUserResult.fleet, ownerUserId, normalizedEmail);
+        return { fleet, error, ambiguous: false };
+      }
+      if (ownerUserResult.schemaMissing) {
+        return { fleet: null, error: null, ambiguous: false };
+      }
+      return ownerUserResult;
     }
-    return ownerUserResult;
-  }
 
   const ownerEmailResult = await findFleetByColumn(supabase, 'owner_email', normalizedEmail);
   if (ownerEmailResult.error || ownerEmailResult.ambiguous || ownerEmailResult.fleet) {
-    if (ownerEmailResult.fleet) {
-      const { fleet, error } = await backfillFleetOwnerIdentity(supabase, ownerEmailResult.fleet, ownerUserId, normalizedEmail);
-      return { fleet, error, ambiguous: false };
+      if (ownerEmailResult.fleet) {
+        const { fleet, error } = await backfillFleetOwnerIdentity(supabase, ownerEmailResult.fleet, ownerUserId, normalizedEmail);
+        return { fleet, error, ambiguous: false };
+      }
+      if (ownerEmailResult.schemaMissing) {
+        return { fleet: null, error: null, ambiguous: false };
+      }
+      return ownerEmailResult;
     }
-    return ownerEmailResult;
-  }
 
   return { fleet: null, error: null, ambiguous: false };
 }
@@ -310,13 +353,31 @@ export async function POST(request) {
           owner_user_id: ownerUserId || null,
           owner_email: normalizedOwnerEmail,
         }, { onConflict: 'id' })
-        .select('id, owner_name, invite_code, owner_user_id, owner_email')
+        .select(FLEET_OWNER_SELECT)
         .single();
 
-      if (createError) {
-        console.error('Fleet creation error:', createError);
+      let createdFleet = newFleet;
+      let finalCreateError = createError;
+
+      if (createError && isOwnerIdentityColumnError(createError)) {
+        const fallbackCreate = await supabase
+          .from('fleets')
+          .upsert({
+            id: fleetId,
+            owner_name: 'My Fleet',
+            invite_code: initialInviteCode,
+          }, { onConflict: 'id' })
+          .select(FLEET_BASE_SELECT)
+          .single();
+
+        createdFleet = fallbackCreate.data;
+        finalCreateError = fallbackCreate.error;
+      }
+
+      if (finalCreateError) {
+        console.error('Fleet creation error:', finalCreateError);
         return NextResponse.json(
-          { success: false, error: formatSupabaseError(createError, 'Failed to create fleet.') },
+          { success: false, error: formatSupabaseError(finalCreateError, 'Failed to create fleet.') },
           { status: 500 }
         );
       }
@@ -326,9 +387,9 @@ export async function POST(request) {
         message: 'Fleet created successfully.',
         data: {
           fleet: {
-            id: newFleet.id,
-            name: newFleet.owner_name,
-            inviteCode: newFleet.invite_code,
+            id: createdFleet.id,
+            name: createdFleet.owner_name,
+            inviteCode: createdFleet.invite_code,
           },
         },
       });
@@ -398,7 +459,7 @@ export async function PATCH(request) {
       );
     }
 
-    const { data: updatedFleet, error: updateError } = await supabase
+    let { data: updatedFleet, error: updateError } = await supabase
       .from('fleets')
       .update({
         owner_name: String(ownerName).trim(),
@@ -406,8 +467,22 @@ export async function PATCH(request) {
         owner_email: normalizeOwnerEmail(ownerEmail) || fleet.owner_email || null,
       })
       .eq('id', fleet.id)
-      .select('id, owner_name, invite_code')
+      .select(FLEET_BASE_SELECT)
       .single();
+
+    if (updateError && isOwnerIdentityColumnError(updateError)) {
+      const fallbackUpdate = await supabase
+        .from('fleets')
+        .update({
+          owner_name: String(ownerName).trim(),
+        })
+        .eq('id', fleet.id)
+        .select(FLEET_BASE_SELECT)
+        .single();
+
+      updatedFleet = fallbackUpdate.data;
+      updateError = fallbackUpdate.error;
+    }
 
     if (updateError || !updatedFleet) {
       console.error('Fleet update error:', updateError);

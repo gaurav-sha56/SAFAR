@@ -8,7 +8,7 @@ export default function PwaRegister() {
 
     const registerServiceWorker = async () => {
       try {
-        await navigator.serviceWorker.register('/service-worker.js', {
+        await navigator.serviceWorker.register('/pwa-sw.js', {
           scope: '/',
         });
       } catch (error) {
