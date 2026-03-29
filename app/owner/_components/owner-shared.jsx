@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { listenForForegroundMessages, requestFirebaseToken, isFirebaseMessagingSupported } from '@/app/lib/firebase';
 
 const DEFAULT_FLEET = { id: '', name: '' };
+const OWNER_FLEET_STORAGE_KEY = 'safar:owner-fleet-id';
 
 export const NAV_ITEMS = [
   { href: '/owner', label: 'Dashboard', key: 'dashboard' },
@@ -436,6 +437,8 @@ export function useOwnerWorkspaceData() {
   const { user, isLoaded } = useUser();
   const [fleet, setFleet] = useState(DEFAULT_FLEET);
   const [inviteCode, setInviteCode] = useState(null);
+  const [resolvedFleetId, setResolvedFleetId] = useState(null);
+  const [hasLoadedStoredFleetId, setHasLoadedStoredFleetId] = useState(false);
   const [drivers, setDrivers] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [driversLoading, setDriversLoading] = useState(true);
@@ -453,11 +456,37 @@ export function useOwnerWorkspaceData() {
   }, []);
 
   const derivedFleetId = useMemo(() => (user?.id ? createFleetIdFromOwnerId(user.id) : null), [user?.id]);
+  const ownerEmail = user?.primaryEmailAddress?.emailAddress || null;
+  const activeFleetId = resolvedFleetId || derivedFleetId;
 
-  const isFleetSetupPending = hasEnsuredFleet && Boolean(derivedFleetId) && fleet.id === derivedFleetId && (!fleet.name || fleet.name === 'My Fleet');
+  const persistResolvedFleetId = useCallback((nextFleetId) => {
+    if (!nextFleetId) return;
+
+    setResolvedFleetId(nextFleetId);
+
+    if (typeof window !== 'undefined' && user?.id) {
+      window.localStorage.setItem(`${OWNER_FLEET_STORAGE_KEY}:${user.id}`, nextFleetId);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (!user?.id) {
+      setResolvedFleetId(null);
+      setHasLoadedStoredFleetId(true);
+      return;
+    }
+
+    const storedFleetId = window.localStorage.getItem(`${OWNER_FLEET_STORAGE_KEY}:${user.id}`);
+    setResolvedFleetId(storedFleetId || null);
+    setHasLoadedStoredFleetId(true);
+  }, [user?.id]);
+
+  const isFleetSetupPending = hasEnsuredFleet && Boolean(activeFleetId) && fleet.id === activeFleetId && (!fleet.name || fleet.name === 'My Fleet');
 
   const ensureFleetExists = useCallback(async () => {
-    if (!derivedFleetId) return;
+    if (!derivedFleetId || !hasLoadedStoredFleetId) return;
     setHasEnsuredFleet(false);
     setFleetEnsureError('');
 
@@ -465,28 +494,43 @@ export function useOwnerWorkspaceData() {
       const response = await fetch('/api/fleet-dashboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fleetId: derivedFleetId, ensureExists: true, ownerEmail: user?.primaryEmailAddress?.emailAddress || null }),
+        body: JSON.stringify({
+          fleetId: activeFleetId,
+          ensureExists: true,
+          ownerUserId: user?.id || null,
+          ownerEmail,
+        }),
       });
       const result = await response.json().catch(() => null);
       if (!response.ok || !result?.success) {
         setFleetEnsureError(result?.error || 'Could not prepare your fleet workspace.');
         return;
       }
+      persistResolvedFleetId(result?.data?.fleet?.id || activeFleetId);
       setHasEnsuredFleet(true);
     } catch (error) {
       setFleetEnsureError(error?.message || 'Could not prepare your fleet workspace.');
     }
-  }, [derivedFleetId, user?.primaryEmailAddress?.emailAddress]);
+  }, [activeFleetId, derivedFleetId, hasLoadedStoredFleetId, ownerEmail, persistResolvedFleetId, user?.id]);
 
   const fetchDashboardData = useCallback(async ({ silent = false } = {}) => {
-    if (!derivedFleetId) return;
+    if (!activeFleetId) return;
     if (!silent) setDriversLoading(true);
 
     try {
-      const response = await fetch(`/api/fleet-dashboard?fleetId=${encodeURIComponent(derivedFleetId)}&alertLimit=100`, { cache: 'no-store' });
+      const params = new URLSearchParams({
+        fleetId: activeFleetId,
+        alertLimit: '100',
+      });
+
+      if (user?.id) params.set('ownerUserId', user.id);
+      if (ownerEmail) params.set('ownerEmail', ownerEmail);
+
+      const response = await fetch(`/api/fleet-dashboard?${params.toString()}`, { cache: 'no-store' });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error || 'Fleet data could not be loaded.');
 
+      persistResolvedFleetId(result.data.fleet.id);
       setFleet({ id: result.data.fleet.id, name: result.data.fleet.name || 'My Fleet' });
       setInviteCode(result.data.fleet.inviteCode || null);
 
@@ -525,26 +569,26 @@ export function useOwnerWorkspaceData() {
     } finally {
       if (!silent) setDriversLoading(false);
     }
-  }, [derivedFleetId, showToast]);
+  }, [activeFleetId, ownerEmail, persistResolvedFleetId, showToast, user?.id]);
 
   useEffect(() => {
     ensureFleetExists();
   }, [ensureFleetExists]);
 
   useEffect(() => {
-    if (!derivedFleetId || !hasEnsuredFleet) return;
+    if (!activeFleetId || !hasEnsuredFleet) return;
     fetchDashboardData();
-  }, [derivedFleetId, fetchDashboardData, hasEnsuredFleet]);
+  }, [activeFleetId, fetchDashboardData, hasEnsuredFleet]);
 
   useEffect(() => {
-    if (!derivedFleetId || !hasEnsuredFleet) return;
+    if (!activeFleetId || !hasEnsuredFleet) return;
     const intervalId = setInterval(() => fetchDashboardData({ silent: true }), 10000);
     return () => clearInterval(intervalId);
-  }, [derivedFleetId, fetchDashboardData, hasEnsuredFleet]);
+  }, [activeFleetId, fetchDashboardData, hasEnsuredFleet]);
 
   const handleCompleteFleetSetup = useCallback(async () => {
     const trimmedFleetName = fleetSetupName.trim();
-    if (!derivedFleetId) return showToast('Owner account is still loading. Please wait a moment.', 'error');
+    if (!activeFleetId) return showToast('Owner account is still loading. Please wait a moment.', 'error');
     if (!trimmedFleetName) return showToast('Please enter a fleet name before continuing.', 'error');
 
     setIsSettingUpFleet(true);
@@ -552,7 +596,12 @@ export function useOwnerWorkspaceData() {
       const updateResponse = await fetch('/api/fleet-dashboard', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fleetId: derivedFleetId, ownerName: trimmedFleetName }),
+        body: JSON.stringify({
+          fleetId: activeFleetId,
+          ownerName: trimmedFleetName,
+          ownerUserId: user?.id || null,
+          ownerEmail,
+        }),
       });
       const updateResult = await updateResponse.json();
       if (!updateResponse.ok || !updateResult.success) throw new Error(updateResult.error || 'Could not save fleet name.');
@@ -560,7 +609,7 @@ export function useOwnerWorkspaceData() {
       const codeResponse = await fetch('/api/generate-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fleetId: derivedFleetId, ownerId: user?.id || null }),
+        body: JSON.stringify({ fleetId: activeFleetId, ownerId: user?.id || null }),
       });
       const codeResult = await codeResponse.json();
       if (!codeResponse.ok || !codeResult.success) throw new Error(codeResult.error || 'Could not generate invite code.');
@@ -573,7 +622,7 @@ export function useOwnerWorkspaceData() {
     } finally {
       setIsSettingUpFleet(false);
     }
-  }, [derivedFleetId, fetchDashboardData, fleetSetupName, showToast, user?.id]);
+  }, [activeFleetId, fetchDashboardData, fleetSetupName, ownerEmail, showToast, user?.id]);
 
   return {
     user,

@@ -16,53 +16,168 @@ function generateInviteCode() {
   return randomInt(0, 100000).toString().padStart(5, '0');
 }
 
+function normalizeOwnerEmail(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed || null;
+}
+
+async function findFleetByColumn(supabase, column, value) {
+  if (!value) {
+    return { fleet: null, error: null, ambiguous: false };
+  }
+
+  const { data, error } = await supabase
+    .from('fleets')
+    .select('id, owner_name, invite_code, owner_user_id, owner_email')
+    .eq(column, value)
+    .limit(2);
+
+  if (error) {
+    return { fleet: null, error, ambiguous: false };
+  }
+
+  if (!data?.length) {
+    return { fleet: null, error: null, ambiguous: false };
+  }
+
+  if (data.length > 1) {
+    return { fleet: null, error: null, ambiguous: true };
+  }
+
+  return { fleet: data[0], error: null, ambiguous: false };
+}
+
+async function backfillFleetOwnerIdentity(supabase, fleet, ownerUserId, ownerEmail) {
+  if (!fleet?.id) {
+    return { fleet, error: null };
+  }
+
+  const normalizedEmail = normalizeOwnerEmail(ownerEmail);
+  const updates = {};
+
+  if (ownerUserId && fleet.owner_user_id !== ownerUserId) {
+    updates.owner_user_id = ownerUserId;
+  }
+
+  if (normalizedEmail && fleet.owner_email !== normalizedEmail) {
+    updates.owner_email = normalizedEmail;
+  }
+
+  if (!Object.keys(updates).length) {
+    return { fleet, error: null };
+  }
+
+  const { data, error } = await supabase
+    .from('fleets')
+    .update(updates)
+    .eq('id', fleet.id)
+    .select('id, owner_name, invite_code, owner_user_id, owner_email')
+    .single();
+
+  return { fleet: data ?? fleet, error };
+}
+
+async function resolveFleet(supabase, { fleetId, ownerUserId, ownerEmail }) {
+  const normalizedEmail = normalizeOwnerEmail(ownerEmail);
+
+  if (fleetId) {
+    const { data: fleetById, error: fleetByIdError } = await supabase
+      .from('fleets')
+      .select('id, owner_name, invite_code, owner_user_id, owner_email')
+      .eq('id', fleetId)
+      .maybeSingle();
+
+    if (fleetByIdError) {
+      return { fleet: null, error: fleetByIdError, ambiguous: false };
+    }
+
+    if (fleetById) {
+      const { fleet, error } = await backfillFleetOwnerIdentity(supabase, fleetById, ownerUserId, normalizedEmail);
+      return { fleet, error, ambiguous: false };
+    }
+  }
+
+  const ownerUserResult = await findFleetByColumn(supabase, 'owner_user_id', ownerUserId);
+  if (ownerUserResult.error || ownerUserResult.ambiguous || ownerUserResult.fleet) {
+    if (ownerUserResult.fleet) {
+      const { fleet, error } = await backfillFleetOwnerIdentity(supabase, ownerUserResult.fleet, ownerUserId, normalizedEmail);
+      return { fleet, error, ambiguous: false };
+    }
+    return ownerUserResult;
+  }
+
+  const ownerEmailResult = await findFleetByColumn(supabase, 'owner_email', normalizedEmail);
+  if (ownerEmailResult.error || ownerEmailResult.ambiguous || ownerEmailResult.fleet) {
+    if (ownerEmailResult.fleet) {
+      const { fleet, error } = await backfillFleetOwnerIdentity(supabase, ownerEmailResult.fleet, ownerUserId, normalizedEmail);
+      return { fleet, error, ambiguous: false };
+    }
+    return ownerEmailResult;
+  }
+
+  return { fleet: null, error: null, ambiguous: false };
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const fleetId = searchParams.get('fleetId');
+    const ownerUserId = searchParams.get('ownerUserId');
+    const ownerEmail = searchParams.get('ownerEmail');
     const alertLimitParam = Number.parseInt(searchParams.get('alertLimit') || '12', 10);
     const alertLimit = Number.isFinite(alertLimitParam)
       ? Math.min(Math.max(alertLimitParam, 1), 200)
       : 12;
 
-    if (!fleetId) {
+    if (!fleetId && !ownerUserId && !ownerEmail) {
       return NextResponse.json(
-        { success: false, error: 'fleetId is required.' },
+        { success: false, error: 'fleetId or owner identity is required.' },
         { status: 400 }
       );
     }
 
     const supabase = createServerClient();
+    const { fleet, error: fleetResolveError, ambiguous } = await resolveFleet(supabase, { fleetId, ownerUserId, ownerEmail });
 
-    const [
-      { data: fleet, error: fleetError },
-      { data: drivers, error: driversError },
-      { data: alerts, error: alertsError },
-    ] = await Promise.all([
-      supabase
-        .from('fleets')
-        .select('id, owner_name, invite_code')
-        .eq('id', fleetId)
-        .single(),
-      supabase
-        .from('drivers')
-        .select('id, name, phone, fleet_id, last_lat, last_lng, last_seen, is_online')
-        .eq('fleet_id', fleetId)
-        .order('last_seen', { ascending: false }),
-      supabase
-        .from('fleet_alerts')
-        .select('id, driver_id, driver_name, driver_phone, type, severity, message, meta, created_at')
-        .eq('fleet_id', fleetId)
-        .order('created_at', { ascending: false })
-        .limit(alertLimit),
-    ]);
+    if (fleetResolveError) {
+      console.error('Fleet resolution error:', fleetResolveError);
+      return NextResponse.json(
+        { success: false, error: formatSupabaseError(fleetResolveError, 'Could not resolve fleet.') },
+        { status: 500 }
+      );
+    }
 
-    if (fleetError || !fleet) {
+    if (ambiguous) {
+      return NextResponse.json(
+        { success: false, error: 'More than one fleet matches this owner. Please reconnect the owner mapping.' },
+        { status: 409 }
+      );
+    }
+
+    if (!fleet) {
       return NextResponse.json(
         { success: false, error: 'Fleet not found.' },
         { status: 404 }
       );
     }
+
+    const [
+      { data: drivers, error: driversError },
+      { data: alerts, error: alertsError },
+    ] = await Promise.all([
+      supabase
+        .from('drivers')
+        .select('id, name, phone, fleet_id, last_lat, last_lng, last_seen, is_online')
+        .eq('fleet_id', fleet.id)
+        .order('last_seen', { ascending: false }),
+      supabase
+        .from('fleet_alerts')
+        .select('id, driver_id, driver_name, driver_phone, type, severity, message, meta, created_at')
+        .eq('fleet_id', fleet.id)
+        .order('created_at', { ascending: false })
+        .limit(alertLimit),
+    ]);
 
     if (driversError) {
       console.error('Drivers fetch error:', driversError);
@@ -116,11 +231,11 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { fleetId, ensureExists, ownerEmail } = body;
+    const { fleetId, ensureExists, ownerEmail, ownerUserId } = body;
 
-    if (!fleetId) {
+    if (!fleetId && !ownerUserId && !ownerEmail) {
       return NextResponse.json(
-        { success: false, error: 'fleetId is required.' },
+        { success: false, error: 'fleetId or owner identity is required.' },
         { status: 400 }
       );
     }
@@ -133,23 +248,24 @@ export async function POST(request) {
     }
 
     const supabase = createServerClient();
+    const normalizedOwnerEmail = normalizeOwnerEmail(ownerEmail);
+    const { fleet: existingFleet, error: resolveError, ambiguous } = await resolveFleet(supabase, { fleetId, ownerUserId, ownerEmail });
 
-    // Check if fleet already exists
-    const { data: existingFleet, error: checkError } = await supabase
-      .from('fleets')
-      .select('id, owner_name, invite_code')
-      .eq('id', fleetId)
-      .single();
-
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error('Fleet existence check error:', checkError);
+    if (resolveError) {
+      console.error('Fleet existence check error:', resolveError);
       return NextResponse.json(
-        { success: false, error: formatSupabaseError(checkError, 'Failed to check fleet existence.') },
+        { success: false, error: formatSupabaseError(resolveError, 'Failed to check fleet existence.') },
         { status: 500 }
       );
     }
 
-    // If fleet doesn't exist, create it with default name
+    if (ambiguous) {
+      return NextResponse.json(
+        { success: false, error: 'More than one fleet matches this owner. Please reconnect the owner mapping.' },
+        { status: 409 }
+      );
+    }
+
     if (!existingFleet) {
       let initialInviteCode = null;
       let attempts = 0;
@@ -191,8 +307,10 @@ export async function POST(request) {
           id: fleetId,
           owner_name: 'My Fleet',
           invite_code: initialInviteCode,
+          owner_user_id: ownerUserId || null,
+          owner_email: normalizedOwnerEmail,
         }, { onConflict: 'id' })
-        .select('id, owner_name, invite_code')
+        .select('id, owner_name, invite_code, owner_user_id, owner_email')
         .single();
 
       if (createError) {
@@ -216,7 +334,6 @@ export async function POST(request) {
       });
     }
 
-    // Fleet already exists
     return NextResponse.json({
       success: true,
       message: 'Fleet already exists.',
@@ -240,11 +357,11 @@ export async function POST(request) {
 export async function PATCH(request) {
   try {
     const body = await request.json();
-    const { fleetId, ownerName } = body;
+    const { fleetId, ownerName, ownerUserId, ownerEmail } = body;
 
-    if (!fleetId) {
+    if (!fleetId && !ownerUserId && !ownerEmail) {
       return NextResponse.json(
-        { success: false, error: 'fleetId is required.' },
+        { success: false, error: 'fleetId or owner identity is required.' },
         { status: 400 }
       );
     }
@@ -257,13 +374,38 @@ export async function PATCH(request) {
     }
 
     const supabase = createServerClient();
+    const { fleet, error: fleetResolveError, ambiguous } = await resolveFleet(supabase, { fleetId, ownerUserId, ownerEmail });
+
+    if (fleetResolveError) {
+      console.error('Fleet update resolution error:', fleetResolveError);
+      return NextResponse.json(
+        { success: false, error: formatSupabaseError(fleetResolveError, 'Failed to resolve fleet before updating.') },
+        { status: 500 }
+      );
+    }
+
+    if (ambiguous) {
+      return NextResponse.json(
+        { success: false, error: 'More than one fleet matches this owner. Please reconnect the owner mapping.' },
+        { status: 409 }
+      );
+    }
+
+    if (!fleet) {
+      return NextResponse.json(
+        { success: false, error: 'Fleet not found.' },
+        { status: 404 }
+      );
+    }
 
     const { data: updatedFleet, error: updateError } = await supabase
       .from('fleets')
       .update({
         owner_name: String(ownerName).trim(),
+        owner_user_id: ownerUserId || fleet.owner_user_id || null,
+        owner_email: normalizeOwnerEmail(ownerEmail) || fleet.owner_email || null,
       })
-      .eq('id', fleetId)
+      .eq('id', fleet.id)
       .select('id, owner_name, invite_code')
       .single();
 
