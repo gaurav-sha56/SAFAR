@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UserButton, useUser } from '@clerk/nextjs';
 import { usePathname } from 'next/navigation';
+import { listenForForegroundMessages, requestFirebaseToken, isFirebaseMessagingSupported } from '@/app/lib/firebase';
 
 const DEFAULT_FLEET = { id: '', name: '' };
 
@@ -172,6 +173,155 @@ export function PwaInstallBanner() {
             className="inline-flex items-center justify-center rounded-full border border-sky-100 bg-white px-4 py-3 text-sm font-semibold text-slate-600 transition hover:border-orange-200 hover:bg-orange-50 hover:text-slate-900"
           >
             Maybe later
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function PushNotificationBanner({ fleetId, userId }) {
+  const [status, setStatus] = useState('checking');
+  const [message, setMessage] = useState('');
+  const [isBusy, setIsBusy] = useState(false);
+
+  const syncToken = useCallback(async () => {
+    if (!fleetId || !userId || typeof window === 'undefined') return;
+
+    const supported = await isFirebaseMessagingSupported();
+    if (!supported) {
+      setStatus('unsupported');
+      return;
+    }
+
+    if (!('Notification' in window)) {
+      setStatus('unsupported');
+      return;
+    }
+
+    if (Notification.permission === 'denied') {
+      setStatus('blocked');
+      setMessage('Browser notifications are blocked on this device. Enable them from browser settings to receive live alerts.');
+      return;
+    }
+
+    if (Notification.permission !== 'granted') {
+      setStatus('prompt');
+      return;
+    }
+
+    try {
+      const token = await requestFirebaseToken();
+      if (!token) {
+        setStatus('unsupported');
+        return;
+      }
+
+      const response = await fetch('/api/push-subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fleetId,
+          userId,
+          token,
+          notificationPermission: Notification.permission,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Push subscription could not be saved.');
+      }
+
+      setStatus('enabled');
+      setMessage('Instant fleet alerts are active on this device.');
+    } catch (error) {
+      setStatus('error');
+      setMessage(error.message || 'Instant alert setup failed. Please try again.');
+    }
+  }, [fleetId, userId]);
+
+  useEffect(() => {
+    syncToken();
+  }, [syncToken]);
+
+  useEffect(() => {
+    let unsubscribe = () => {};
+
+    const attachListener = async () => {
+      unsubscribe = await listenForForegroundMessages((payload) => {
+        if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') {
+          return;
+        }
+
+        const title = payload.notification?.title || payload.data?.title || 'SAFAR Alert';
+        const body = payload.notification?.body || payload.data?.body || 'A new fleet alert just came in.';
+        const url = payload.data?.url || '/owner/alerts';
+
+        const notification = new Notification(title, {
+          body,
+          icon: '/icons/icon-192x192.png',
+          tag: payload.data?.tag || payload.data?.alertId || 'safar-alert',
+          data: { url },
+        });
+
+        notification.onclick = () => {
+          window.focus();
+          window.location.href = url;
+        };
+      });
+    };
+
+    attachListener();
+    return () => unsubscribe?.();
+  }, []);
+
+  const handleEnable = useCallback(async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+
+    setIsBusy(true);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setStatus(permission === 'denied' ? 'blocked' : 'prompt');
+        setMessage(permission === 'denied' ? 'Notification permission was blocked. You can enable it later from browser settings.' : '');
+        return;
+      }
+
+      await syncToken();
+    } finally {
+      setIsBusy(false);
+    }
+  }, [syncToken]);
+
+  if (!fleetId || !userId) return null;
+  if (status === 'checking' || status === 'enabled' || status === 'unsupported') return null;
+
+  return (
+    <div className="mb-6 overflow-hidden rounded-[28px] border border-orange-200 bg-[radial-gradient(circle_at_top_left,#fff7ed_0%,#ffffff_42%,#eff6ff_100%)] p-5 shadow-[0_18px_55px_rgba(15,42,94,0.08)] sm:p-6">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-[0_16px_32px_rgba(249,115,22,0.22)]">
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 11-6 0h6z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-600">Instant Fleet Alerts</p>
+            <h3 className="mt-2 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">Turn on push notifications for SOS and live safety events.</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+              Get WhatsApp-style alert popups for overspeed, SOS, and tracking-stop events even when SAFAR is in the background.
+            </p>
+            {message ? <p className={`mt-3 text-sm ${status === 'blocked' || status === 'error' ? 'text-red-600' : 'text-emerald-700'}`}>{message}</p> : null}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleEnable}
+            disabled={isBusy}
+            className="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isBusy ? 'Enabling alerts...' : 'Enable alerts'}
           </button>
         </div>
       </div>
@@ -530,6 +680,7 @@ export function OwnerShell({ section, fleet, user, children, toast }) {
 
       <main className={`mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 ${isStandalone ? 'pb-32' : 'pb-12'}`}>
         <PwaInstallBanner />
+        <PushNotificationBanner fleetId={fleet?.id} userId={user?.id} />
         {children}
       </main>
 

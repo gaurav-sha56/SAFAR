@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 import { insertSafetyAlert } from '@/lib/safety';
+import { notifyFleetAlert } from '@/lib/push-notifications';
 
 export async function POST(request) {
   try {
@@ -38,7 +39,7 @@ export async function POST(request) {
     }
 
     if (!isTracking) {
-      await insertSafetyAlert(supabase, {
+      const alertInsert = await insertSafetyAlert(supabase, {
         fleet_id: fleetId,
         driver_id: updatedDriver.id,
         driver_name: updatedDriver.name,
@@ -50,6 +51,10 @@ export async function POST(request) {
           lastSeen: updatedDriver.last_seen,
         },
       });
+
+      if (alertInsert.inserted && alertInsert.alert) {
+        await notifyFleetAlert(alertInsert.alert);
+      }
     }
 
     return NextResponse.json({

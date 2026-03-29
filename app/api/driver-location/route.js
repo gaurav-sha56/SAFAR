@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 import { insertSafetyAlert, OVERSPEED_THRESHOLD_KMH } from '@/lib/safety';
+import { notifyFleetAlert } from '@/lib/push-notifications';
 
 function isFiniteNumber(value) {
   return typeof value === 'number' && Number.isFinite(value);
@@ -79,7 +80,7 @@ export async function POST(request) {
         continue;
       }
 
-      await insertSafetyAlert(supabase, {
+      const alertInsert = await insertSafetyAlert(supabase, {
         fleet_id: fleetId,
         driver_id: updatedDriver.id,
         driver_name: updatedDriver.name,
@@ -89,6 +90,10 @@ export async function POST(request) {
         message: event.message,
         meta: event.meta || {},
       });
+
+      if (alertInsert.inserted && alertInsert.alert) {
+        await notifyFleetAlert(alertInsert.alert);
+      }
     }
 
     return NextResponse.json({
