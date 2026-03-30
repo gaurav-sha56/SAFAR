@@ -207,7 +207,7 @@ export default function OwnerDashboardPage() {
             <div className="grid gap-8 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.9fr)] xl:items-end">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-orange-500">Owner Dashboard</p>
-                <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">
+                <h1 className="mt-4 max-w-3xl text-4xl font-brown tracking-tight text-slate-950 sm:text-5xl">
                   Keep your fleet, drivers, alerts, and live routes under one control center.
                 </h1>
                 <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600">
