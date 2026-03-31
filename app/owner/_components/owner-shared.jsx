@@ -8,6 +8,7 @@ import { listenForForegroundMessages, requestFirebaseToken, isFirebaseMessagingS
 
 const DEFAULT_FLEET = { id: '', name: '' };
 const OWNER_FLEET_STORAGE_KEY = 'safar:owner-fleet-id';
+const PUSH_PROMPT_DISMISSED_KEY = 'safar:push-prompt-dismissed';
 
 export const NAV_ITEMS = [
   { href: '/owner', label: 'Dashboard', key: 'dashboard' },
@@ -185,6 +186,7 @@ export function PushNotificationBanner({ fleetId, userId }) {
   const [status, setStatus] = useState('checking');
   const [message, setMessage] = useState('');
   const [isBusy, setIsBusy] = useState(false);
+  const [showPromptModal, setShowPromptModal] = useState(false);
 
   const syncToken = useCallback(async () => {
     if (!fleetId || !userId || typeof window === 'undefined') return;
@@ -203,11 +205,14 @@ export function PushNotificationBanner({ fleetId, userId }) {
     if (Notification.permission === 'denied') {
       setStatus('blocked');
       setMessage('Browser notifications are blocked on this device. Enable them from browser settings to receive live alerts.');
+      setShowPromptModal(false);
       return;
     }
 
     if (Notification.permission !== 'granted') {
       setStatus('prompt');
+      const wasDismissed = window.localStorage.getItem(`${PUSH_PROMPT_DISMISSED_KEY}:${userId}`) === 'true';
+      setShowPromptModal(!wasDismissed);
       return;
     }
 
@@ -235,6 +240,7 @@ export function PushNotificationBanner({ fleetId, userId }) {
 
       setStatus('enabled');
       setMessage('Instant fleet alerts are active on this device.');
+      setShowPromptModal(false);
     } catch (error) {
       setStatus('error');
       setMessage(error.message || 'Instant alert setup failed. Please try again.');
@@ -281,10 +287,12 @@ export function PushNotificationBanner({ fleetId, userId }) {
 
     setIsBusy(true);
     try {
+      window.localStorage.removeItem(`${PUSH_PROMPT_DISMISSED_KEY}:${userId}`);
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
         setStatus(permission === 'denied' ? 'blocked' : 'prompt');
         setMessage(permission === 'denied' ? 'Notification permission was blocked. You can enable it later from browser settings.' : '');
+        setShowPromptModal(permission !== 'denied');
         return;
       }
 
@@ -292,41 +300,94 @@ export function PushNotificationBanner({ fleetId, userId }) {
     } finally {
       setIsBusy(false);
     }
-  }, [syncToken]);
+  }, [syncToken, userId]);
+
+  const handleDismissPrompt = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(`${PUSH_PROMPT_DISMISSED_KEY}:${userId}`, 'true');
+    }
+    setShowPromptModal(false);
+  }, [userId]);
 
   if (!fleetId || !userId) return null;
   if (status === 'checking' || status === 'enabled' || status === 'unsupported') return null;
 
   return (
-    <div className="mb-6 overflow-hidden rounded-[28px] border border-orange-200 bg-[radial-gradient(circle_at_top_left,#fff7ed_0%,#ffffff_42%,#eff6ff_100%)] p-5 shadow-[0_18px_55px_rgba(15,42,94,0.08)] sm:p-6">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-[0_16px_32px_rgba(249,115,22,0.22)]">
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 11-6 0h6z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-600">Instant Fleet Alerts</p>
-            <h3 className="mt-2 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">Turn on push notifications for SOS and live safety events.</h3>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Get WhatsApp-style alert popups for overspeed, SOS, and tracking-stop events even when SAFAR is in the background.
-            </p>
-            {message ? <p className={`mt-3 text-sm ${status === 'blocked' || status === 'error' ? 'text-red-600' : 'text-emerald-700'}`}>{message}</p> : null}
-          </div>
-        </div>
+    <>
+      {showPromptModal ? (
+        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/40 p-4 backdrop-blur-sm sm:items-center">
+          <div className="w-full max-w-xl overflow-hidden rounded-[32px] border border-sky-100 bg-[radial-gradient(circle_at_top_left,#fff7ed_0%,#ffffff_40%,#e0f2fe_100%)] p-6 shadow-[0_28px_80px_rgba(15,23,42,0.28)] sm:p-8">
+            <div className="flex items-start gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[22px] bg-slate-950 text-white shadow-[0_18px_38px_rgba(15,23,42,0.22)]">
+                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 11-6 0h6z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-600">Instant Fleet Alerts</p>
+                <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Turn on WhatsApp-style safety notifications.</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
+                  Enable notifications once and SAFAR will alert you instantly for SOS, overspeed, and driver tracking issues even while the app is in the background.
+                </p>
+              </div>
+            </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={handleEnable}
-            disabled={isBusy}
-            className="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isBusy ? 'Enabling alerts...' : 'Enable alerts'}
-          </button>
+            <div className="mt-6 grid gap-3 rounded-[24px] border border-white/80 bg-white/80 p-4 shadow-[0_14px_30px_rgba(15,42,94,0.05)] sm:grid-cols-3">
+              {['SOS emergency alerts', 'Overspeed warnings', 'Tracking stopped updates'].map((item) => (
+                <div key={item} className="rounded-[20px] bg-sky-50/70 px-4 py-4 text-sm font-semibold text-slate-700">
+                  {item}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                onClick={handleDismissPrompt}
+                className="inline-flex items-center justify-center rounded-full border border-sky-100 bg-white px-5 py-3 text-sm font-semibold text-slate-600 transition hover:border-orange-200 hover:bg-orange-50 hover:text-slate-900"
+              >
+                Maybe later
+              </button>
+              <button
+                onClick={handleEnable}
+                disabled={isBusy}
+                className="inline-flex items-center justify-center rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isBusy ? 'Enabling alerts...' : 'Enable notifications'}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      ) : null}
+
+      {(status === 'blocked' || status === 'error') ? (
+        <div className="mb-6 overflow-hidden rounded-[28px] border border-orange-200 bg-[radial-gradient(circle_at_top_left,#fff7ed_0%,#ffffff_42%,#eff6ff_100%)] p-5 shadow-[0_18px_55px_rgba(15,42,94,0.08)] sm:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-[0_16px_32px_rgba(249,115,22,0.22)]">
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 11-6 0h6z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-600">Instant Fleet Alerts</p>
+                <h3 className="mt-2 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">Notifications need one quick fix.</h3>
+                <p className={`mt-3 text-sm leading-6 ${status === 'blocked' || status === 'error' ? 'text-red-600' : 'text-emerald-700'}`}>{message}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={handleEnable}
+                disabled={isBusy}
+                className="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isBusy ? 'Retrying...' : 'Try again'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 
