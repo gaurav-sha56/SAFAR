@@ -61,6 +61,27 @@ export function getEmbeddedMapHref(coords) {
   return `https://www.openstreetmap.org/export/embed.html?bbox=${coords.lng - pad}%2C${coords.lat - pad}%2C${coords.lng + pad}%2C${coords.lat + pad}&layer=mapnik&marker=${coords.lat}%2C${coords.lng}`;
 }
 
+export function formatVehicleIdentity({ vehiclePlate, vehicleModel }) {
+  const plate = typeof vehiclePlate === 'string' ? vehiclePlate.trim() : '';
+  const model = typeof vehicleModel === 'string' ? vehicleModel.trim() : '';
+
+  if (plate && model) return `${plate} - ${model}`;
+  return plate || model || '';
+}
+
+export function formatDriverDisplayName(driver) {
+  const vehicleIdentity = formatVehicleIdentity({
+    vehiclePlate: driver?.vehicle_plate || driver?.vehiclePlate,
+    vehicleModel: driver?.vehicle_model || driver?.vehicleModel,
+  });
+
+  if (vehicleIdentity) {
+    return `${driver?.name || 'Driver'} - ${vehicleIdentity}`;
+  }
+
+  return driver?.name || 'Driver';
+}
+
 export function AlertBadge({ severity }) {
   const styles = {
     high: 'border-red-200 bg-red-50 text-red-700',
@@ -829,3 +850,4 @@ export function OwnerShell({ section, fleet, user, children, toast }) {
     </div>
   );
 }
+

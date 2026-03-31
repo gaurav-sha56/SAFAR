@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
-import { insertSafetyAlert, OVERSPEED_THRESHOLD_KMH } from '@/lib/safety';
+import { formatDriverAlertIdentity, insertSafetyAlert, OVERSPEED_THRESHOLD_KMH } from '@/lib/safety';
 import { notifyFleetAlert } from '@/lib/push-notifications';
 
 function isFiniteNumber(value) {
@@ -48,7 +48,7 @@ export async function POST(request) {
       })
       .eq('id', driverId)
       .eq('fleet_id', fleetId)
-      .select('id, name, phone, fleet_id, is_online, last_lat, last_lng, last_seen')
+      .select('id, name, phone, fleet_id, vehicle_model, vehicle_plate, is_online, last_lat, last_lng, last_seen')
       .single();
 
     if (updateError || !updatedDriver) {
@@ -60,17 +60,20 @@ export async function POST(request) {
     }
 
     const normalizedEvents = Array.isArray(safetyEvents) ? safetyEvents : [];
+    const driverIdentity = formatDriverAlertIdentity(updatedDriver);
 
     if (isFiniteNumber(speedKmh) && speedKmh >= OVERSPEED_THRESHOLD_KMH) {
       normalizedEvents.push({
         type: 'overspeed',
         severity: 'high',
-        message: `${updatedDriver.name || updatedDriver.phone} is overspeeding at ${Math.round(speedKmh)} km/h.`,
+        message: `${driverIdentity} is overspeeding at ${Math.round(speedKmh)} km/h.`,
         meta: {
           speedKmh,
           thresholdKmh: OVERSPEED_THRESHOLD_KMH,
           lat,
           lng,
+          vehicleModel: updatedDriver.vehicle_model || null,
+          vehiclePlate: updatedDriver.vehicle_plate || null,
         },
       });
     }
@@ -83,12 +86,16 @@ export async function POST(request) {
       const alertInsert = await insertSafetyAlert(supabase, {
         fleet_id: fleetId,
         driver_id: updatedDriver.id,
-        driver_name: updatedDriver.name,
+        driver_name: driverIdentity,
         driver_phone: updatedDriver.phone,
         type: event.type,
         severity: event.severity || 'medium',
         message: event.message,
-        meta: event.meta || {},
+        meta: {
+          ...(event.meta || {}),
+          vehicleModel: event?.meta?.vehicleModel || updatedDriver.vehicle_model || null,
+          vehiclePlate: event?.meta?.vehiclePlate || updatedDriver.vehicle_plate || null,
+        },
       });
 
       if (alertInsert.inserted && alertInsert.alert) {
@@ -101,6 +108,9 @@ export async function POST(request) {
       message: 'Driver location updated.',
       data: {
         driverId: updatedDriver.id,
+        driverName: updatedDriver.name,
+        vehicleModel: updatedDriver.vehicle_model,
+        vehiclePlate: updatedDriver.vehicle_plate,
         fleetId: updatedDriver.fleet_id,
         isOnline: updatedDriver.is_online,
         lastLocation: {

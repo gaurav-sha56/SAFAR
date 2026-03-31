@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
-import { insertSafetyAlert } from '@/lib/safety';
+import { formatDriverAlertIdentity, insertSafetyAlert } from '@/lib/safety';
 import { notifyFleetAlert } from '@/lib/push-notifications';
 
 export async function POST(request) {
@@ -27,7 +27,7 @@ export async function POST(request) {
       })
       .eq('id', driverId)
       .eq('fleet_id', fleetId)
-      .select('id, name, phone, fleet_id, is_online, last_seen, last_lat, last_lng')
+      .select('id, name, phone, fleet_id, vehicle_model, vehicle_plate, is_online, last_seen, last_lat, last_lng')
       .single();
 
     if (error || !updatedDriver) {
@@ -39,16 +39,19 @@ export async function POST(request) {
     }
 
     if (!isTracking) {
+      const driverIdentity = formatDriverAlertIdentity(updatedDriver);
       const alertInsert = await insertSafetyAlert(supabase, {
         fleet_id: fleetId,
         driver_id: updatedDriver.id,
-        driver_name: updatedDriver.name,
+        driver_name: driverIdentity,
         driver_phone: updatedDriver.phone,
         type: 'tracking_stopped',
         severity: 'medium',
-        message: `${updatedDriver.name || updatedDriver.phone} stopped live tracking.`,
+        message: `${driverIdentity} stopped live tracking.`,
         meta: {
           lastSeen: updatedDriver.last_seen,
+          vehicleModel: updatedDriver.vehicle_model || null,
+          vehiclePlate: updatedDriver.vehicle_plate || null,
         },
       });
 
@@ -65,6 +68,8 @@ export async function POST(request) {
           id: updatedDriver.id,
           name: updatedDriver.name,
           phone: updatedDriver.phone,
+          vehicleModel: updatedDriver.vehicle_model,
+          vehiclePlate: updatedDriver.vehicle_plate,
           fleetId: updatedDriver.fleet_id,
           isOnline: updatedDriver.is_online,
           lastSeen: updatedDriver.last_seen,

@@ -9,6 +9,8 @@ import {
   SurfaceCard,
   WorkspaceError,
   WorkspaceLoading,
+  formatDriverDisplayName,
+  formatVehicleIdentity,
   getDriverCoords,
   getDriverMapHref,
   hasValidLocation,
@@ -56,7 +58,13 @@ export default function OwnerSosPage() {
                     <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-base font-semibold text-slate-950">{alert.driverName || 'Driver alert'}</p>
+                          <p className="text-base font-semibold text-slate-950">
+                            {formatDriverDisplayName({
+                              name: alert.driverName,
+                              vehiclePlate: alert.vehiclePlate,
+                              vehicleModel: alert.vehicleModel,
+                            }) || 'Driver alert'}
+                          </p>
                           <AlertBadge severity={alert.severity} />
                           <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-red-600">
                             SOS
@@ -64,6 +72,11 @@ export default function OwnerSosPage() {
                         </div>
                         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">{alert.message}</p>
                         {alert.driverPhone ? <p className="mt-3 text-sm font-medium text-slate-500">{alert.driverPhone}</p> : null}
+                        {formatVehicleIdentity({ vehiclePlate: alert.vehiclePlate, vehicleModel: alert.vehicleModel }) ? (
+                          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-orange-500">
+                            {formatVehicleIdentity({ vehiclePlate: alert.vehiclePlate, vehicleModel: alert.vehicleModel })}
+                          </p>
+                        ) : null}
                         <p className="mt-2 text-xs text-slate-400">
                           {alert.createdAt ? new Date(alert.createdAt).toLocaleString('en-IN') : 'Just now'}
                         </p>

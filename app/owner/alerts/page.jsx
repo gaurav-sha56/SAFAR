@@ -8,6 +8,8 @@ import {
   SurfaceCard,
   WorkspaceError,
   WorkspaceLoading,
+  formatDriverDisplayName,
+  formatVehicleIdentity,
   useOwnerWorkspaceData,
 } from '../_components/owner-shared';
 
@@ -46,7 +48,13 @@ export default function OwnerAlertsPage() {
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-base font-semibold text-slate-950">{alert.driverName || 'Fleet alert'}</p>
+                        <p className="text-base font-semibold text-slate-950">
+                          {formatDriverDisplayName({
+                            name: alert.driverName,
+                            vehiclePlate: alert.vehiclePlate,
+                            vehicleModel: alert.vehicleModel,
+                          }) || 'Fleet alert'}
+                        </p>
                         <AlertBadge severity={alert.severity} />
                         {alert.type ? (
                           <span className="rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
@@ -56,6 +64,11 @@ export default function OwnerAlertsPage() {
                       </div>
                       <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">{alert.message}</p>
                       {alert.driverPhone ? <p className="mt-3 text-sm font-medium text-slate-500">{alert.driverPhone}</p> : null}
+                      {formatVehicleIdentity({ vehiclePlate: alert.vehiclePlate, vehicleModel: alert.vehicleModel }) ? (
+                        <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-orange-500">
+                          {formatVehicleIdentity({ vehiclePlate: alert.vehiclePlate, vehicleModel: alert.vehicleModel })}
+                        </p>
+                      ) : null}
                     </div>
                     <p className="text-xs font-medium text-slate-400">
                       {alert.createdAt ? new Date(alert.createdAt).toLocaleString('en-IN') : 'Just now'}

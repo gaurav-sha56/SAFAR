@@ -6,6 +6,8 @@ import {
   AlertBadge,
   EmptyState,
   FleetSetupPanel,
+  formatDriverDisplayName,
+  formatVehicleIdentity,
   OwnerShell,
   StatusBadge,
   SurfaceCard,
@@ -120,6 +122,11 @@ function RecentDriversCard({ drivers }) {
                       <StatusBadge status={driver.is_online ? 'active' : 'offline'} />
                     </div>
                     <p className="mt-1 text-sm text-slate-500">{driver.phone}</p>
+                    {formatVehicleIdentity({ vehiclePlate: driver.vehicle_plate, vehicleModel: driver.vehicle_model }) ? (
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-orange-600">
+                        {formatVehicleIdentity({ vehiclePlate: driver.vehicle_plate, vehicleModel: driver.vehicle_model })}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -168,7 +175,13 @@ function RecentAlertsCard({ alerts }) {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-slate-900">{alert.driverName || 'Fleet alert'}</p>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {formatDriverDisplayName({
+                        name: alert.driverName,
+                        vehiclePlate: alert.vehiclePlate,
+                        vehicleModel: alert.vehicleModel,
+                      }) || 'Fleet alert'}
+                    </p>
                     <AlertBadge severity={alert.severity} />
                   </div>
                   <p className="mt-2 text-sm leading-6 text-slate-600">{alert.message}</p>

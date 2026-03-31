@@ -4,12 +4,20 @@ import { createServerClient } from '@/lib/supabase';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { inviteCode, driverPhone, driverName } = body;
+    const { inviteCode, driverPhone, driverName, vehicleModel, vehiclePlate } = body;
+
+    console.log('verify-code payload:', {
+      inviteCode,
+      driverPhone,
+      driverName,
+      vehicleModel,
+      vehiclePlate,
+    });
 
     // --- Input Validation ---
-    if (!inviteCode || !driverPhone || !driverName) {
+    if (!inviteCode || !driverPhone || !driverName || !vehicleModel || !vehiclePlate) {
       return NextResponse.json(
-        { success: false, error: 'inviteCode, driverPhone, and driverName are required.' },
+        { success: false, error: 'inviteCode, driverPhone, driverName, vehicleModel, and vehiclePlate are required.' },
         { status: 400 }
       );
     }
@@ -34,6 +42,22 @@ export async function POST(request) {
     if (!nameStr) {
       return NextResponse.json(
         { success: false, error: 'driverName is required.' },
+        { status: 400 }
+      );
+    }
+
+    const vehicleModelStr = String(vehicleModel).trim();
+    if (!vehicleModelStr) {
+      return NextResponse.json(
+        { success: false, error: 'vehicleModel is required.' },
+        { status: 400 }
+      );
+    }
+
+    const vehiclePlateStr = String(vehiclePlate).trim().toUpperCase();
+    if (!vehiclePlateStr) {
+      return NextResponse.json(
+        { success: false, error: 'vehiclePlate is required.' },
         { status: 400 }
       );
     }
@@ -63,6 +87,8 @@ export async function POST(request) {
           name: nameStr,
           phone: phoneStr,
           fleet_id: fleet.id,
+          vehicle_model: vehicleModelStr,
+          vehicle_plate: vehiclePlateStr,
           is_online: false,
         },
         {
@@ -70,7 +96,7 @@ export async function POST(request) {
           ignoreDuplicates: false,
         }
       )
-      .select('id, name, phone, fleet_id, last_lat, last_lng, last_seen, is_online')
+      .select('id, name, phone, fleet_id, vehicle_model, vehicle_plate, last_lat, last_lng, last_seen, is_online')
       .single();
 
     if (driverError) {
@@ -90,6 +116,8 @@ export async function POST(request) {
           name: driver.name,
           phone: driver.phone,
           fleetId: driver.fleet_id,
+          vehicleModel: driver.vehicle_model,
+          vehiclePlate: driver.vehicle_plate,
           isOnline: driver.is_online,
           joinedAt: driver.last_seen,
         },

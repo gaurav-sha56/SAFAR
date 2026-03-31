@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
-import { insertSafetyAlert, OFFLINE_ALERT_THRESHOLD_MS } from '@/lib/safety';
+import { formatDriverAlertIdentity, insertSafetyAlert, OFFLINE_ALERT_THRESHOLD_MS } from '@/lib/safety';
 import { notifyFleetAlert } from '@/lib/push-notifications';
 
 function isAuthorized(request) {
@@ -32,7 +32,7 @@ export async function GET(request) {
 
     const { data: drivers, error } = await supabase
       .from('drivers')
-      .select('id, name, phone, fleet_id, last_seen, is_online, last_lat, last_lng')
+      .select('id, name, phone, fleet_id, vehicle_model, vehicle_plate, last_seen, is_online, last_lat, last_lng')
       .not('fleet_id', 'is', null)
       .eq('is_online', true)
       .not('last_seen', 'is', null)
@@ -51,18 +51,21 @@ export async function GET(request) {
     let insertedCount = 0;
 
     for (const driver of drivers || []) {
+      const driverIdentity = formatDriverAlertIdentity(driver);
       const alertInsert = await insertSafetyAlert(supabase, {
         fleet_id: driver.fleet_id,
         driver_id: driver.id,
-        driver_name: driver.name,
+        driver_name: driverIdentity,
         driver_phone: driver.phone,
         type: 'device_offline',
         severity: 'high',
-        message: `${driver.name || driver.phone} has not sent location updates for at least ${Math.max(2, Math.round(OFFLINE_ALERT_THRESHOLD_MS / 60000))} min.`,
+        message: `${driverIdentity} has not sent location updates for at least ${Math.max(2, Math.round(OFFLINE_ALERT_THRESHOLD_MS / 60000))} min.`,
         meta: {
           lastSeen: driver.last_seen,
           lastLat: driver.last_lat,
           lastLng: driver.last_lng,
+          vehicleModel: driver.vehicle_model || null,
+          vehiclePlate: driver.vehicle_plate || null,
           source: 'alert_sweep',
         },
       });

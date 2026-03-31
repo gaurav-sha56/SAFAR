@@ -211,7 +211,7 @@ export async function GET(request) {
     ] = await Promise.all([
       supabase
         .from('drivers')
-        .select('id, name, phone, fleet_id, last_lat, last_lng, last_seen, is_online')
+        .select('id, name, phone, fleet_id, vehicle_model, vehicle_plate, last_lat, last_lng, last_seen, is_online')
         .eq('fleet_id', fleet.id)
         .order('last_seen', { ascending: false }),
       supabase
@@ -239,6 +239,8 @@ export async function GET(request) {
       driverId: alert.driver_id,
       driverName: alert.driver_name,
       driverPhone: alert.driver_phone,
+      vehicleModel: alert.meta?.vehicleModel || null,
+      vehiclePlate: alert.meta?.vehiclePlate || null,
       type: alert.type,
       severity: alert.severity,
       message: alert.message,
