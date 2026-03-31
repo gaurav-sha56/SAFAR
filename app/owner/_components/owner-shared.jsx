@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UserButton, useUser } from '@clerk/nextjs';
 import { usePathname } from 'next/navigation';
-import { listenForForegroundMessages, requestFirebaseToken, isFirebaseMessagingSupported } from '@/app/lib/firebase';
+import { getFirebaseMessagingDebugInfo, listenForForegroundMessages, requestFirebaseToken, isFirebaseMessagingSupported } from '@/app/lib/firebase';
 
 const DEFAULT_FLEET = { id: '', name: '' };
 const OWNER_FLEET_STORAGE_KEY = 'safar:owner-fleet-id';
@@ -187,6 +187,7 @@ export function PushNotificationBanner({ fleetId, userId }) {
   const [message, setMessage] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [showPromptModal, setShowPromptModal] = useState(false);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   const syncToken = useCallback(async () => {
     if (!fleetId || !userId || typeof window === 'undefined') return;
@@ -194,11 +195,15 @@ export function PushNotificationBanner({ fleetId, userId }) {
     const supported = await isFirebaseMessagingSupported();
     if (!supported) {
       setStatus('unsupported');
+      setMessage('This device/browser is not exposing Firebase web push support yet. Open the installed Android PWA in Chrome and try again.');
+      setDebugInfo(getFirebaseMessagingDebugInfo());
       return;
     }
 
     if (!('Notification' in window)) {
       setStatus('unsupported');
+      setMessage('This browser does not support the Notification API.');
+      setDebugInfo(getFirebaseMessagingDebugInfo());
       return;
     }
 
@@ -220,6 +225,8 @@ export function PushNotificationBanner({ fleetId, userId }) {
       const token = await requestFirebaseToken();
       if (!token) {
         setStatus('unsupported');
+        setMessage('SAFAR could not get a device push token from this browser.');
+        setDebugInfo(getFirebaseMessagingDebugInfo());
         return;
       }
 
@@ -240,10 +247,13 @@ export function PushNotificationBanner({ fleetId, userId }) {
 
       setStatus('enabled');
       setMessage('Instant fleet alerts are active on this device.');
+      setDebugInfo(null);
       setShowPromptModal(false);
     } catch (error) {
       setStatus('error');
       setMessage(error.message || 'Instant alert setup failed. Please try again.');
+      setDebugInfo(getFirebaseMessagingDebugInfo());
+      console.error('Push notification sync failed:', error);
     }
   }, [fleetId, userId]);
 
@@ -310,7 +320,7 @@ export function PushNotificationBanner({ fleetId, userId }) {
   }, [userId]);
 
   if (!fleetId || !userId) return null;
-  if (status === 'checking' || status === 'enabled' || status === 'unsupported') return null;
+  if (status === 'checking' || status === 'enabled') return null;
 
   return (
     <>
@@ -359,7 +369,7 @@ export function PushNotificationBanner({ fleetId, userId }) {
         </div>
       ) : null}
 
-      {(status === 'blocked' || status === 'error') ? (
+      {(status === 'blocked' || status === 'error' || status === 'unsupported') ? (
         <div className="mb-6 overflow-hidden rounded-[28px] border border-orange-200 bg-[radial-gradient(circle_at_top_left,#fff7ed_0%,#ffffff_42%,#eff6ff_100%)] p-5 shadow-[0_18px_55px_rgba(15,42,94,0.08)] sm:p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-4">
@@ -371,7 +381,14 @@ export function PushNotificationBanner({ fleetId, userId }) {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-600">Instant Fleet Alerts</p>
                 <h3 className="mt-2 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">Notifications need one quick fix.</h3>
-                <p className={`mt-3 text-sm leading-6 ${status === 'blocked' || status === 'error' ? 'text-red-600' : 'text-emerald-700'}`}>{message}</p>
+                <p className={`mt-3 text-sm leading-6 ${status === 'blocked' || status === 'error' || status === 'unsupported' ? 'text-red-600' : 'text-emerald-700'}`}>{message}</p>
+                {debugInfo ? (
+                  <div className="mt-3 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-xs leading-6 text-slate-500">
+                    <p>Permission: <span className="font-semibold text-slate-700">{String(debugInfo.permission)}</span></p>
+                    <p>Service worker: <span className="font-semibold text-slate-700">{debugInfo.hasServiceWorker ? 'available' : 'missing'}</span></p>
+                    <p>Firebase config: <span className="font-semibold text-slate-700">{Object.values(debugInfo.config).every(Boolean) ? 'complete' : 'incomplete'}</span></p>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -381,7 +398,7 @@ export function PushNotificationBanner({ fleetId, userId }) {
                 disabled={isBusy}
                 className="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isBusy ? 'Retrying...' : 'Try again'}
+                {isBusy ? 'Retrying...' : status === 'unsupported' ? 'Retry in app' : 'Try again'}
               </button>
             </div>
           </div>
