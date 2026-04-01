@@ -20,6 +20,65 @@ const REPORT_OPTIONS = [
   { value: 'monthly', label: 'Monthly' },
 ];
 
+function escapeCsvValue(value) {
+  const normalized = value == null ? '' : String(value);
+  if (/[",\n]/.test(normalized)) {
+    return `"${normalized.replace(/"/g, '""')}"`;
+  }
+  return normalized;
+}
+
+function buildReportCsv(report) {
+  const rows = [
+    ['Fleet Report', report.fleet?.name || 'My Fleet'],
+    ['Period', report.window?.label || 'Weekly'],
+    ['Window', formatDateRange(report.window)],
+    [],
+    ['Summary'],
+    ['Metric', 'Value'],
+    ['Total Drivers', report.summary.totalDrivers],
+    ['Active Drivers', report.summary.activeDrivers],
+    ['On Duty Drivers', report.summary.onDutyDrivers],
+    ['Off Duty Drivers', report.summary.offDutyDrivers],
+    ['Break Drivers', report.summary.breakDrivers],
+    ['Total Alerts', report.summary.totalAlerts],
+    ['High Alerts', report.summary.highAlerts],
+    ['Medium Alerts', report.summary.mediumAlerts],
+    ['Harsh Braking Alerts', report.summary.harshBrakingAlerts],
+    ['Overspeed Alerts', report.summary.overspeedAlerts],
+    ['Duty Tracking Interruptions', report.summary.dutyTrackingInterruptions],
+    [],
+    ['Driver Summary'],
+    ['Driver', 'Duty Status', 'Tracking Expected', 'Total Alerts', 'High Alerts', 'Overspeed', 'Harsh Braking', 'Interruptions', 'Risk Score', 'Last Seen'],
+    ...report.driverSummaries.map((driver) => ([
+      driver.name,
+      driver.dutyStatus,
+      driver.trackingExpected ? 'Yes' : 'No',
+      driver.totalAlerts,
+      driver.highAlerts,
+      driver.overspeedCount,
+      driver.harshBrakingCount,
+      driver.interruptionCount,
+      driver.riskScore,
+      driver.lastSeen ? new Date(driver.lastSeen).toLocaleString('en-IN') : '',
+    ])),
+    [],
+    ['Recent Alerts'],
+    ['Time', 'Driver', 'Type', 'Severity', 'Message'],
+    ...report.alerts.map((alert) => ([
+      alert.createdAt ? new Date(alert.createdAt).toLocaleString('en-IN') : '',
+      alert.driverName || 'Driver',
+      formatAlertTypeLabel(alert.type),
+      alert.severity,
+      alert.message,
+    ])),
+  ];
+
+  return rows
+    .map((row) => row.map((cell) => escapeCsvValue(cell)).join(','))
+    .join('\n');
+}
+
 function MetricCard({ label, value, hint, tone = 'sky' }) {
   const styles = {
     sky: 'border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] text-sky-700',
@@ -35,6 +94,25 @@ function MetricCard({ label, value, hint, tone = 'sky' }) {
       <p className="mt-2 text-sm text-slate-500">{hint}</p>
     </div>
   );
+}
+
+function getRiskBand(score) {
+  if (score >= 18) {
+    return {
+      label: 'Critical',
+      className: 'border-red-200 bg-red-50 text-red-700',
+    };
+  }
+  if (score >= 10) {
+    return {
+      label: 'Watch',
+      className: 'border-amber-200 bg-amber-50 text-amber-700',
+    };
+  }
+  return {
+    label: 'Stable',
+    className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  };
 }
 
 function formatDateRange(window) {
@@ -103,6 +181,19 @@ export default function OwnerReportsPage() {
     return option ? `${option.label} Fleet Report` : 'Fleet Report';
   }, [period]);
 
+  const handleDownloadCsv = () => {
+    if (!report || typeof window === 'undefined') return;
+
+    const csv = buildReportCsv(report);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${(report.fleet?.name || 'fleet').replace(/\s+/g, '-').toLowerCase()}-${report.window?.period || 'weekly'}-report.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <OwnerShell section="reports" fleet={workspace.fleet} user={workspace.user} toast={workspace.toast}>
       {!workspace.isLoaded ? (
@@ -128,7 +219,7 @@ export default function OwnerReportsPage() {
                 </p>
                 {report?.window ? (
                   <p className="mt-3 text-sm font-medium text-slate-500">
-                    Report Window: {formatDateRange(report.window)}
+                  Report Window: {formatDateRange(report.window)}
                   </p>
                 ) : null}
               </div>
@@ -149,12 +240,21 @@ export default function OwnerReportsPage() {
                     </button>
                   ))}
                 </div>
-                <button
-                  onClick={() => window.print()}
-                  className="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 print:hidden"
-                >
-                  Print / Save PDF
-                </button>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    onClick={handleDownloadCsv}
+                    disabled={!report}
+                    className="inline-flex items-center justify-center rounded-full border border-sky-100 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-orange-200 hover:bg-orange-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 print:hidden"
+                  >
+                    Download CSV
+                  </button>
+                  <button
+                    onClick={() => window.print()}
+                    className="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 print:hidden"
+                  >
+                    Print / Save PDF
+                  </button>
+                </div>
               </div>
             </div>
           </SurfaceCard>
@@ -167,6 +267,51 @@ export default function OwnerReportsPage() {
             <EmptyState title="No report yet" description="Choose a report window once fleet data is ready." />
           ) : (
             <>
+              <SurfaceCard className="overflow-hidden border-slate-200 print:shadow-none">
+                <div className="bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_52%,#f97316_100%)] px-6 py-6 text-white sm:px-8">
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.28em] text-sky-100">Printable Fleet Report</p>
+                      <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">{report.fleet?.name || 'My Fleet'}</h2>
+                      <p className="mt-3 max-w-3xl text-sm leading-7 text-sky-50">
+                        {report.window?.label} report for operational review, safety coaching, maintenance planning, and export-ready owner summaries.
+                      </p>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-[22px] bg-white/12 px-4 py-4 backdrop-blur">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-100">Window</p>
+                        <p className="mt-2 text-sm font-semibold">{formatDateRange(report.window)}</p>
+                      </div>
+                      <div className="rounded-[22px] bg-white/12 px-4 py-4 backdrop-blur">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-100">Prepared On</p>
+                        <p className="mt-2 text-sm font-semibold">{new Date().toLocaleString('en-IN')}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid gap-4 border-t border-white/10 bg-white px-6 py-5 sm:grid-cols-3 sm:px-8">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Safety Snapshot</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      High alerts: <span className="font-semibold text-slate-950">{report.summary.highAlerts}</span> | Harsh braking: <span className="font-semibold text-slate-950">{report.summary.harshBrakingAlerts}</span>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Duty Snapshot</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      On duty: <span className="font-semibold text-slate-950">{report.summary.onDutyDrivers}</span> | Interruptions: <span className="font-semibold text-slate-950">{report.summary.dutyTrackingInterruptions}</span>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Report Use</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      Suitable for owner review, operations check-ins, and print/PDF sharing.
+                    </p>
+                  </div>
+                </div>
+              </SurfaceCard>
+
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <MetricCard label="Total Alerts" value={report.summary.totalAlerts} hint="All incidents in this window." />
                 <MetricCard label="High Alerts" value={report.summary.highAlerts} hint="Urgent issues needing quick action." tone="red" />
@@ -191,6 +336,9 @@ export default function OwnerReportsPage() {
                               <div className="flex flex-wrap items-center gap-2">
                                 <p className="text-sm font-semibold text-slate-950">{driver.name}</p>
                                 <DutyBadge dutyStatus={driver.dutyStatus} trackingExpected={driver.trackingExpected} />
+                                <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${getRiskBand(driver.riskScore).className}`}>
+                                  {getRiskBand(driver.riskScore).label}
+                                </span>
                               </div>
                               <p className="mt-2 text-sm text-slate-500">
                                 Alerts: {driver.totalAlerts} | High: {driver.highAlerts} | Overspeed: {driver.overspeedCount} | Harsh Braking: {driver.harshBrakingCount}
@@ -274,6 +422,115 @@ export default function OwnerReportsPage() {
                   )}
                 </SurfaceCard>
               </div>
+
+              <div className="grid gap-6 xl:grid-cols-3">
+                <SurfaceCard className="overflow-hidden print:shadow-none">
+                  <div className="border-b border-sky-100 px-6 py-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Insurance Impact</p>
+                    <p className="mt-2 text-sm text-slate-500">How current alert trends could affect claims, scrutiny, or risk posture.</p>
+                  </div>
+                  <div className="space-y-3 px-4 py-4">
+                    {report.impacts.insurance.map((item) => (
+                      <div key={item} className="rounded-[20px] border border-sky-100 bg-white px-4 py-4 text-sm leading-7 text-slate-600 shadow-[0_12px_30px_rgba(15,42,94,0.04)]">
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </SurfaceCard>
+
+                <SurfaceCard className="overflow-hidden print:shadow-none">
+                  <div className="border-b border-sky-100 px-6 py-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Maintenance Impact</p>
+                    <p className="mt-2 text-sm text-slate-500">Vehicle-health concerns suggested by recent safety behavior.</p>
+                  </div>
+                  <div className="space-y-3 px-4 py-4">
+                    {report.impacts.maintenance.map((item) => (
+                      <div key={item} className="rounded-[20px] border border-sky-100 bg-white px-4 py-4 text-sm leading-7 text-slate-600 shadow-[0_12px_30px_rgba(15,42,94,0.04)]">
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </SurfaceCard>
+
+                <SurfaceCard className="overflow-hidden print:shadow-none">
+                  <div className="border-b border-sky-100 px-6 py-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Operational Impact</p>
+                    <p className="mt-2 text-sm text-slate-500">Dispatch, visibility, and execution risks indicated by this report.</p>
+                  </div>
+                  <div className="space-y-3 px-4 py-4">
+                    {report.impacts.operations.map((item) => (
+                      <div key={item} className="rounded-[20px] border border-sky-100 bg-white px-4 py-4 text-sm leading-7 text-slate-600 shadow-[0_12px_30px_rgba(15,42,94,0.04)]">
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </SurfaceCard>
+              </div>
+
+              <SurfaceCard className="overflow-hidden print:shadow-none">
+                <div className="border-b border-sky-100 px-6 py-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Driver Scoreboard</p>
+                  <p className="mt-2 text-sm text-slate-500">Printable driver-by-driver review with risk bands for coaching and escalation.</p>
+                </div>
+                {!report.driverSummaries.length ? (
+                  <EmptyState title="No drivers in this report" description="Driver scoring will appear once fleet members are available." />
+                ) : (
+                  <div className="overflow-x-auto px-4 py-4">
+                    <table className="min-w-full border-separate border-spacing-y-3 text-left">
+                      <thead>
+                        <tr className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                          <th className="px-3">Driver</th>
+                          <th className="px-3">Duty</th>
+                          <th className="px-3">Risk</th>
+                          <th className="px-3">Alerts</th>
+                          <th className="px-3">Overspeed</th>
+                          <th className="px-3">Harsh Braking</th>
+                          <th className="px-3">Interruptions</th>
+                          <th className="px-3">Last Seen</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {report.driverSummaries.map((driver) => {
+                          const band = getRiskBand(driver.riskScore);
+                          return (
+                            <tr key={driver.id} className="rounded-[18px] border border-sky-100 bg-white shadow-[0_10px_24px_rgba(15,42,94,0.04)]">
+                              <td className="rounded-l-[18px] px-3 py-4 text-sm font-semibold text-slate-950">{driver.name}</td>
+                              <td className="px-3 py-4 text-sm text-slate-600">{driver.dutyStatus.replace(/_/g, ' ')}</td>
+                              <td className="px-3 py-4">
+                                <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${band.className}`}>
+                                  {band.label} · {driver.riskScore}
+                                </span>
+                              </td>
+                              <td className="px-3 py-4 text-sm text-slate-600">{driver.totalAlerts}</td>
+                              <td className="px-3 py-4 text-sm text-slate-600">{driver.overspeedCount}</td>
+                              <td className="px-3 py-4 text-sm text-slate-600">{driver.harshBrakingCount}</td>
+                              <td className="px-3 py-4 text-sm text-slate-600">{driver.interruptionCount}</td>
+                              <td className="rounded-r-[18px] px-3 py-4 text-sm text-slate-500">
+                                {driver.lastSeen ? new Date(driver.lastSeen).toLocaleString('en-IN') : 'Not available'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </SurfaceCard>
+
+              <SurfaceCard className="overflow-hidden print:shadow-none">
+                <div className="border-b border-sky-100 px-6 py-5">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Sign-Off</p>
+                  <p className="mt-2 text-sm text-slate-500">Use this area when the report is printed for review, coaching, or audit handoff.</p>
+                </div>
+                <div className="grid gap-4 px-6 py-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {['Prepared By', 'Reviewed By', 'Operations Notes'].map((label) => (
+                    <div key={label} className="rounded-[20px] border border-dashed border-slate-300 bg-slate-50 px-4 py-5">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">{label}</p>
+                      <div className="mt-10 border-b border-slate-300" />
+                    </div>
+                  ))}
+                </div>
+              </SurfaceCard>
             </>
           )}
         </div>
