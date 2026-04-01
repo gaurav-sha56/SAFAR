@@ -9,6 +9,7 @@ import {
   SurfaceCard,
   WorkspaceError,
   WorkspaceLoading,
+  formatAlertTypeLabel,
   formatDriverDisplayName,
   formatVehicleIdentity,
   getDriverCoords,
@@ -40,7 +41,7 @@ export default function OwnerSosPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.26em] text-red-500">SOS Command</p>
             <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">React fast to high-severity fleet incidents.</h1>
             <p className="mt-3 max-w-2xl text-base leading-8 text-slate-600">
-              This page focuses only on the most urgent alerts so owners can call the driver, open the live location, and escalate quickly.
+              This page focuses on the most urgent alerts so owners can call the driver, open the live location, and react quickly to SOS, overspeed, or harsh-braking incidents.
             </p>
           </div>
 
@@ -67,7 +68,7 @@ export default function OwnerSosPage() {
                           </p>
                           <AlertBadge severity={alert.severity} />
                           <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-red-600">
-                            SOS
+                            {formatAlertTypeLabel(alert.type)}
                           </span>
                         </div>
                         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">{alert.message}</p>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 import { buildOfflineAlerts } from '@/lib/safety';
+import { DRIVER_BASE_SELECT, DRIVER_DUTY_SELECT, isDriverDutyColumnError, withDriverDutyDefaults } from '@/lib/driver-duty';
 import { randomInt } from 'node:crypto';
 
 const FLEET_BASE_SELECT = 'id, owner_name, invite_code';
@@ -206,12 +207,12 @@ export async function GET(request) {
     }
 
     const [
-      { data: drivers, error: driversError },
+      driversResult,
       { data: alerts, error: alertsError },
     ] = await Promise.all([
       supabase
         .from('drivers')
-        .select('id, name, phone, fleet_id, vehicle_model, vehicle_plate, last_lat, last_lng, last_seen, is_online')
+        .select(DRIVER_DUTY_SELECT)
         .eq('fleet_id', fleet.id)
         .order('last_seen', { ascending: false }),
       supabase
@@ -221,6 +222,20 @@ export async function GET(request) {
         .order('created_at', { ascending: false })
         .limit(alertLimit),
     ]);
+
+    let drivers = driversResult.data;
+    let driversError = driversResult.error;
+
+    if (driversError && isDriverDutyColumnError(driversError)) {
+      const fallbackDrivers = await supabase
+        .from('drivers')
+        .select(DRIVER_BASE_SELECT)
+        .eq('fleet_id', fleet.id)
+        .order('last_seen', { ascending: false });
+
+      drivers = fallbackDrivers.data;
+      driversError = fallbackDrivers.error;
+    }
 
     if (driversError) {
       console.error('Drivers fetch error:', driversError);
@@ -250,6 +265,18 @@ export async function GET(request) {
 
     const offlineAlerts = buildOfflineAlerts(drivers ?? [], normalizedAlerts);
 
+    const normalizedDrivers = (drivers ?? []).map((driver) => {
+      const entry = withDriverDutyDefaults(driver);
+      return {
+        ...entry,
+        dutyStatus: entry.duty_status,
+        trackingExpected: entry.tracking_expected,
+        lastTrackingReason: entry.last_tracking_reason,
+        sessionId: entry.duty_session_id,
+        dutyStatusChangedAt: entry.duty_status_changed_at,
+      };
+    });
+
     return NextResponse.json({
       success: true,
       data: {
@@ -258,7 +285,7 @@ export async function GET(request) {
           name: fleet.owner_name || 'My Fleet',
           inviteCode: fleet.invite_code,
         },
-        drivers: drivers ?? [],
+        drivers: normalizedDrivers,
         alerts: [...normalizedAlerts, ...offlineAlerts]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
           .slice(0, alertLimit),

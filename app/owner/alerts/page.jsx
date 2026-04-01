@@ -8,6 +8,7 @@ import {
   SurfaceCard,
   WorkspaceError,
   WorkspaceLoading,
+  formatAlertTypeLabel,
   formatDriverDisplayName,
   formatVehicleIdentity,
   useOwnerWorkspaceData,
@@ -58,7 +59,7 @@ export default function OwnerAlertsPage() {
                         <AlertBadge severity={alert.severity} />
                         {alert.type ? (
                           <span className="rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">
-                            {alert.type}
+                            {formatAlertTypeLabel(alert.type)}
                           </span>
                         ) : null}
                       </div>

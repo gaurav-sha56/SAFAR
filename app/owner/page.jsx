@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { useState } from 'react';
 import {
   AlertBadge,
+  DutyBadge,
   EmptyState,
   FleetSetupPanel,
+  formatAlertTypeLabel,
   formatDriverDisplayName,
   formatVehicleIdentity,
   OwnerShell,
@@ -120,6 +122,7 @@ function RecentDriversCard({ drivers }) {
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate text-sm font-semibold text-slate-900">{driver.name || 'Driver'}</p>
                       <StatusBadge status={driver.is_online ? 'active' : 'offline'} />
+                      <DutyBadge dutyStatus={driver.dutyStatus} trackingExpected={driver.trackingExpected} />
                     </div>
                     <p className="mt-1 text-sm text-slate-500">{driver.phone}</p>
                     {formatVehicleIdentity({ vehiclePlate: driver.vehicle_plate, vehicleModel: driver.vehicle_model }) ? (
@@ -183,6 +186,11 @@ function RecentAlertsCard({ alerts }) {
                       }) || 'Fleet alert'}
                     </p>
                     <AlertBadge severity={alert.severity} />
+                    {alert.type ? (
+                      <span className="rounded-full border border-sky-100 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-700">
+                        {formatAlertTypeLabel(alert.type)}
+                      </span>
+                    ) : null}
                   </div>
                   <p className="mt-2 text-sm leading-6 text-slate-600">{alert.message}</p>
                 </div>

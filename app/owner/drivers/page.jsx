@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import {
+  DutyBadge,
   EmptyState,
   FleetSetupPanel,
   OwnerShell,
@@ -61,6 +62,7 @@ export default function OwnerDriversPage() {
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="truncate text-base font-semibold text-slate-950">{formatDriverDisplayName(driver)}</p>
                             <StatusBadge status={driver.is_online ? 'active' : 'offline'} />
+                            <DutyBadge dutyStatus={driver.dutyStatus} trackingExpected={driver.trackingExpected} />
                           </div>
                           <p className="mt-2 text-sm text-slate-500">{driver.phone}</p>
                           {formatVehicleIdentity({ vehiclePlate: driver.vehicle_plate, vehicleModel: driver.vehicle_model }) ? (
@@ -71,6 +73,11 @@ export default function OwnerDriversPage() {
                           <p className="mt-1 text-xs text-slate-400">
                             Last seen {driver.last_seen ? new Date(driver.last_seen).toLocaleString('en-IN') : 'Not available'}
                           </p>
+                          {driver.lastTrackingReason ? (
+                            <p className="mt-1 text-xs font-medium text-slate-500">
+                              Last reason: {driver.lastTrackingReason.replace(/_/g, ' ')}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
 

@@ -1,6 +1,21 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
-import { formatDriverAlertIdentity, insertSafetyAlert, OVERSPEED_THRESHOLD_KMH } from '@/lib/safety';
+import {
+  formatDriverAlertIdentity,
+  insertSafetyAlert,
+  normalizeIncomingSafetyEvent,
+  OVERSPEED_THRESHOLD_KMH,
+  SAFETY_DEBUG_ENABLED,
+} from '@/lib/safety';
+import {
+  DRIVER_BASE_SELECT,
+  DRIVER_DUTY_SELECT,
+  isDriverDutyColumnError,
+  normalizeDutyStatus,
+  shouldSuppressTrackingAlerts,
+  stripDriverDutyFields,
+  withDriverDutyDefaults,
+} from '@/lib/driver-duty';
 import { notifyFleetAlert } from '@/lib/push-notifications';
 
 function isFiniteNumber(value) {
@@ -19,7 +34,31 @@ export async function POST(request) {
       speed = null,
       speedKmh = null,
       safetyEvents = [],
+      dutyStatus,
+      trackingExpected,
+      sessionId,
+      deviceTime,
     } = body;
+
+    if (SAFETY_DEBUG_ENABLED) {
+      console.log('[SafetyDebug] /api/driver-location payload', {
+        driverId,
+        fleetId,
+        lat,
+        lng,
+        heading,
+        speed,
+        speedKmh,
+        dutyStatus,
+        trackingExpected,
+        sessionId,
+        deviceTime,
+        safetyEventsCount: Array.isArray(safetyEvents) ? safetyEvents.length : 0,
+        safetyEventTypes: Array.isArray(safetyEvents)
+          ? safetyEvents.map((event) => event?.type).filter(Boolean)
+          : [],
+      });
+    }
 
     if (!driverId || !fleetId || !isFiniteNumber(lat) || !isFiniteNumber(lng)) {
       return NextResponse.json(
@@ -29,27 +68,57 @@ export async function POST(request) {
     }
 
     const supabase = createServerClient();
+    const statusTimestamp = typeof deviceTime === 'string' && deviceTime.trim()
+      ? deviceTime
+      : new Date().toISOString();
     const locationPayload = {
       lat,
       lng,
       heading: isFiniteNumber(heading) ? heading : null,
       speed: isFiniteNumber(speed) ? speed : null,
-      updatedAt: new Date().toISOString(),
+      updatedAt: statusTimestamp,
+    };
+    const driverUpdates = {
+      fleet_id: fleetId,
+      last_lat: lat,
+      last_lng: lng,
+      last_seen: statusTimestamp,
+      is_online: true,
     };
 
-    const { data: updatedDriver, error: updateError } = await supabase
+    if ('dutyStatus' in body) {
+      driverUpdates.duty_status = normalizeDutyStatus(dutyStatus);
+      driverUpdates.duty_status_changed_at = statusTimestamp;
+    }
+
+    if (typeof trackingExpected === 'boolean') {
+      driverUpdates.tracking_expected = trackingExpected;
+    }
+
+    if ('sessionId' in body) {
+      driverUpdates.duty_session_id = typeof sessionId === 'string' && sessionId.trim() ? sessionId.trim() : null;
+    }
+
+    let { data: updatedDriver, error: updateError } = await supabase
       .from('drivers')
-      .update({
-        fleet_id: fleetId,
-        last_lat: lat,
-        last_lng: lng,
-        last_seen: new Date().toISOString(),
-        is_online: true,
-      })
+      .update(driverUpdates)
       .eq('id', driverId)
       .eq('fleet_id', fleetId)
-      .select('id, name, phone, fleet_id, vehicle_model, vehicle_plate, is_online, last_lat, last_lng, last_seen')
+      .select(DRIVER_DUTY_SELECT)
       .single();
+
+    if (updateError && isDriverDutyColumnError(updateError)) {
+      const fallback = await supabase
+        .from('drivers')
+        .update(stripDriverDutyFields(driverUpdates))
+        .eq('id', driverId)
+        .eq('fleet_id', fleetId)
+        .select(DRIVER_BASE_SELECT)
+        .single();
+
+      updatedDriver = fallback.data;
+      updateError = fallback.error;
+    }
 
     if (updateError || !updatedDriver) {
       console.error('Driver location update error:', updateError);
@@ -59,10 +128,15 @@ export async function POST(request) {
       );
     }
 
-    const normalizedEvents = Array.isArray(safetyEvents) ? safetyEvents : [];
-    const driverIdentity = formatDriverAlertIdentity(updatedDriver);
+    const normalizedDriver = withDriverDutyDefaults(updatedDriver);
+    const normalizedEvents = Array.isArray(safetyEvents)
+      ? safetyEvents
+          .map((event) => normalizeIncomingSafetyEvent(event, normalizedDriver, { lat, lng }))
+          .filter(Boolean)
+      : [];
+    const driverIdentity = formatDriverAlertIdentity(normalizedDriver);
 
-    if (isFiniteNumber(speedKmh) && speedKmh >= OVERSPEED_THRESHOLD_KMH) {
+    if (isFiniteNumber(speedKmh) && speedKmh >= OVERSPEED_THRESHOLD_KMH && !shouldSuppressTrackingAlerts(normalizedDriver)) {
       normalizedEvents.push({
         type: 'overspeed',
         severity: 'high',
@@ -72,8 +146,11 @@ export async function POST(request) {
           thresholdKmh: OVERSPEED_THRESHOLD_KMH,
           lat,
           lng,
-          vehicleModel: updatedDriver.vehicle_model || null,
-          vehiclePlate: updatedDriver.vehicle_plate || null,
+          dutyStatus: normalizedDriver.duty_status,
+          trackingExpected: normalizedDriver.tracking_expected,
+          sessionId: normalizedDriver.duty_session_id,
+          vehicleModel: normalizedDriver.vehicle_model || null,
+          vehiclePlate: normalizedDriver.vehicle_plate || null,
         },
       });
     }
@@ -85,21 +162,40 @@ export async function POST(request) {
 
       const alertInsert = await insertSafetyAlert(supabase, {
         fleet_id: fleetId,
-        driver_id: updatedDriver.id,
+        driver_id: normalizedDriver.id,
         driver_name: driverIdentity,
-        driver_phone: updatedDriver.phone,
+        driver_phone: normalizedDriver.phone,
         type: event.type,
         severity: event.severity || 'medium',
         message: event.message,
         meta: {
           ...(event.meta || {}),
-          vehicleModel: event?.meta?.vehicleModel || updatedDriver.vehicle_model || null,
-          vehiclePlate: event?.meta?.vehiclePlate || updatedDriver.vehicle_plate || null,
+          dutyStatus: event?.meta?.dutyStatus || normalizedDriver.duty_status,
+          trackingExpected: event?.meta?.trackingExpected ?? normalizedDriver.tracking_expected,
+          sessionId: event?.meta?.sessionId || normalizedDriver.duty_session_id,
+          vehicleModel: event?.meta?.vehicleModel || normalizedDriver.vehicle_model || null,
+          vehiclePlate: event?.meta?.vehiclePlate || normalizedDriver.vehicle_plate || null,
         },
       });
 
       if (alertInsert.inserted && alertInsert.alert) {
+        if (SAFETY_DEBUG_ENABLED) {
+          console.log('[SafetyDebug] alert inserted', {
+            alertId: alertInsert.alert.id,
+            type: alertInsert.alert.type,
+            severity: alertInsert.alert.severity,
+            driverId: normalizedDriver.id,
+            fleetId,
+          });
+        }
         await notifyFleetAlert(alertInsert.alert);
+      } else if (SAFETY_DEBUG_ENABLED) {
+        console.log('[SafetyDebug] alert skipped', {
+          type: event.type,
+          reason: alertInsert.reason || 'unknown',
+          driverId: normalizedDriver.id,
+          fleetId,
+        });
       }
     }
 
@@ -107,16 +203,19 @@ export async function POST(request) {
       success: true,
       message: 'Driver location updated.',
       data: {
-        driverId: updatedDriver.id,
-        driverName: updatedDriver.name,
-        vehicleModel: updatedDriver.vehicle_model,
-        vehiclePlate: updatedDriver.vehicle_plate,
-        fleetId: updatedDriver.fleet_id,
-        isOnline: updatedDriver.is_online,
+        driverId: normalizedDriver.id,
+        driverName: normalizedDriver.name,
+        vehicleModel: normalizedDriver.vehicle_model,
+        vehiclePlate: normalizedDriver.vehicle_plate,
+        fleetId: normalizedDriver.fleet_id,
+        isOnline: normalizedDriver.is_online,
+        dutyStatus: normalizedDriver.duty_status,
+        trackingExpected: normalizedDriver.tracking_expected,
+        sessionId: normalizedDriver.duty_session_id,
         lastLocation: {
-          lat: updatedDriver.last_lat,
-          lng: updatedDriver.last_lng,
-          lastSeen: updatedDriver.last_seen,
+          lat: normalizedDriver.last_lat,
+          lng: normalizedDriver.last_lng,
+          lastSeen: normalizedDriver.last_seen,
           heading: locationPayload.heading,
           speed: locationPayload.speed,
           speedKmh: isFiniteNumber(speedKmh) ? speedKmh : null,

@@ -82,6 +82,32 @@ export function formatDriverDisplayName(driver) {
   return driver?.name || 'Driver';
 }
 
+export function formatAlertTypeLabel(type) {
+  if (typeof type !== 'string') {
+    return 'Alert';
+  }
+
+  const normalized = type.trim().toLowerCase();
+  const knownLabels = {
+    overspeed: 'Overspeed',
+    harsh_braking: 'Harsh Braking',
+    tracking_stopped: 'Tracking Stopped',
+    duty_tracking_interrupted: 'Duty Tracking Interrupted',
+    device_offline: 'Device Offline',
+    sos: 'SOS',
+  };
+
+  if (knownLabels[normalized]) {
+    return knownLabels[normalized];
+  }
+
+  return normalized
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ') || 'Alert';
+}
+
 export function AlertBadge({ severity }) {
   const styles = {
     high: 'border-red-200 bg-red-50 text-red-700',
@@ -103,6 +129,29 @@ export function StatusBadge({ status }) {
     <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${current.color}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${current.dot} ${status === 'active' ? 'animate-pulse' : ''}`} />
       {current.label}
+    </span>
+  );
+}
+
+export function DutyBadge({ dutyStatus, trackingExpected }) {
+  const status = typeof dutyStatus === 'string' ? dutyStatus.trim().toLowerCase() : 'off_duty';
+  const labels = {
+    on_duty: 'On Duty',
+    off_duty: 'Off Duty',
+    break: 'Break',
+    shift_ended: 'Shift Ended',
+  };
+  const styles = {
+    on_duty: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    off_duty: 'border-slate-200 bg-slate-100 text-slate-600',
+    break: 'border-amber-200 bg-amber-50 text-amber-700',
+    shift_ended: 'border-stone-200 bg-stone-100 text-stone-500',
+  };
+
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${styles[status] || styles.off_duty}`}>
+      {labels[status] || 'Off Duty'}
+      {trackingExpected ? ' · GPS On' : ''}
     </span>
   );
 }

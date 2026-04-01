@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 import { formatDriverAlertIdentity, insertSafetyAlert, OFFLINE_ALERT_THRESHOLD_MS } from '@/lib/safety';
+import { DRIVER_BASE_SELECT, DRIVER_DUTY_SELECT, isDriverDutyColumnError, shouldSuppressTrackingAlerts, withDriverDutyDefaults } from '@/lib/driver-duty';
 import { notifyFleetAlert } from '@/lib/push-notifications';
 
 function isAuthorized(request) {
@@ -30,15 +31,30 @@ export async function GET(request) {
     const supabase = createServerClient();
     const cutoff = new Date(Date.now() - OFFLINE_ALERT_THRESHOLD_MS).toISOString();
 
-    const { data: drivers, error } = await supabase
+    let { data: drivers, error } = await supabase
       .from('drivers')
-      .select('id, name, phone, fleet_id, vehicle_model, vehicle_plate, last_seen, is_online, last_lat, last_lng')
+      .select(DRIVER_DUTY_SELECT)
       .not('fleet_id', 'is', null)
       .eq('is_online', true)
       .not('last_seen', 'is', null)
       .lte('last_seen', cutoff)
       .order('last_seen', { ascending: true })
       .limit(200);
+
+    if (error && isDriverDutyColumnError(error)) {
+      const fallback = await supabase
+        .from('drivers')
+        .select(DRIVER_BASE_SELECT)
+        .not('fleet_id', 'is', null)
+        .eq('is_online', true)
+        .not('last_seen', 'is', null)
+        .lte('last_seen', cutoff)
+        .order('last_seen', { ascending: true })
+        .limit(200);
+
+      drivers = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) {
       console.error('Alert sweep driver fetch failed:', error);
@@ -50,7 +66,12 @@ export async function GET(request) {
 
     let insertedCount = 0;
 
-    for (const driver of drivers || []) {
+    for (const entry of drivers || []) {
+      const driver = withDriverDutyDefaults(entry);
+      if (shouldSuppressTrackingAlerts(driver)) {
+        continue;
+      }
+
       const driverIdentity = formatDriverAlertIdentity(driver);
       const alertInsert = await insertSafetyAlert(supabase, {
         fleet_id: driver.fleet_id,
@@ -64,6 +85,9 @@ export async function GET(request) {
           lastSeen: driver.last_seen,
           lastLat: driver.last_lat,
           lastLng: driver.last_lng,
+          dutyStatus: driver.duty_status,
+          trackingExpected: driver.tracking_expected,
+          sessionId: driver.duty_session_id,
           vehicleModel: driver.vehicle_model || null,
           vehiclePlate: driver.vehicle_plate || null,
           source: 'alert_sweep',
