@@ -14,6 +14,7 @@ export const NAV_ITEMS = [
   { href: '/owner', label: 'Dashboard', key: 'dashboard' },
   { href: '/owner/drivers', label: 'Drivers', key: 'drivers' },
   { href: '/owner/alerts', label: 'Alerts', key: 'alerts' },
+  { href: '/owner/reports', label: 'Reports', key: 'reports' },
   { href: '/owner/maps', label: 'Maps', key: 'maps' },
   { href: '/owner/sos', label: 'SOS', key: 'sos' },
 ];
@@ -482,7 +483,7 @@ function StandaloneBottomNav({ section }) {
   return (
     <div className="fixed bottom-[max(16px,calc(env(safe-area-inset-bottom)+12px))] left-1/2 z-40 w-[min(94vw,540px)] -translate-x-1/2 lg:hidden">
       <div className="rounded-[28px] border border-slate-200/70 bg-white/95 px-2 py-2 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-        <nav className="grid grid-cols-5 gap-1">
+        <nav className="grid grid-cols-6 gap-1">
           {NAV_ITEMS.map((item) => {
             const active = item.key === section;
             return (
