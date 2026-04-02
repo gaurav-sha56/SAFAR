@@ -7,6 +7,7 @@ import {
   EmptyState,
   FleetSetupPanel,
   OwnerShell,
+  SafetyScoreBadge,
   SurfaceCard,
   WorkspaceError,
   WorkspaceLoading,
@@ -128,6 +129,8 @@ export default function OwnerReportsPage() {
   const [report, setReport] = useState(null);
   const [reportError, setReportError] = useState('');
   const [isLoadingReport, setIsLoadingReport] = useState(false);
+  const [schedules, setSchedules] = useState([]);
+  const [scheduleBusy, setScheduleBusy] = useState('');
 
   useEffect(() => {
     if (!workspace.hasEnsuredFleet || !workspace.fleet?.id) return;
@@ -176,6 +179,35 @@ export default function OwnerReportsPage() {
     };
   }, [period, workspace.fleet?.id, workspace.hasEnsuredFleet, workspace.user?.id, workspace.user?.primaryEmailAddress?.emailAddress]);
 
+  useEffect(() => {
+    if (!workspace.hasEnsuredFleet || !workspace.fleet?.id) return;
+
+    let cancelled = false;
+    const loadSchedules = async () => {
+      try {
+        const params = new URLSearchParams({
+          fleetId: workspace.fleet.id,
+        });
+        if (workspace.user?.id) params.set('ownerUserId', workspace.user.id);
+        if (workspace.user?.primaryEmailAddress?.emailAddress) {
+          params.set('ownerEmail', workspace.user.primaryEmailAddress.emailAddress);
+        }
+
+        const response = await fetch(`/api/fleet-report-schedules?${params.toString()}`, { cache: 'no-store' });
+        const result = await response.json();
+        if (!response.ok || !result.success) return;
+        if (!cancelled) setSchedules(result.data || []);
+      } catch {
+        if (!cancelled) setSchedules([]);
+      }
+    };
+
+    loadSchedules();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspace.fleet?.id, workspace.hasEnsuredFleet, workspace.user?.id, workspace.user?.primaryEmailAddress?.emailAddress]);
+
   const reportTitle = useMemo(() => {
     const option = REPORT_OPTIONS.find((entry) => entry.value === period);
     return option ? `${option.label} Fleet Report` : 'Fleet Report';
@@ -192,6 +224,43 @@ export default function OwnerReportsPage() {
     anchor.download = `${(report.fleet?.name || 'fleet').replace(/\s+/g, '-').toLowerCase()}-${report.window?.period || 'weekly'}-report.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleSaveSchedule = async (selectedPeriod, enabled) => {
+    if (!workspace.fleet?.id) return;
+
+    setScheduleBusy(selectedPeriod);
+    try {
+      const response = await fetch('/api/fleet-report-schedules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fleetId: workspace.fleet.id,
+          ownerUserId: workspace.user?.id || null,
+          ownerEmail: workspace.user?.primaryEmailAddress?.emailAddress || null,
+          period: selectedPeriod,
+          enabled,
+          deliveryMode: 'download_only',
+          recipientEmail: workspace.user?.primaryEmailAddress?.emailAddress || null,
+        }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || 'Could not save report schedule.');
+      }
+
+      setSchedules((current) => {
+        const next = current.filter((item) => item.period !== selectedPeriod);
+        next.push(result.data);
+        return next.sort((left, right) => left.period.localeCompare(right.period));
+      });
+    } catch (error) {
+      if (typeof window !== 'undefined') {
+        window.alert(error.message || 'Could not save report schedule.');
+      }
+    } finally {
+      setScheduleBusy('');
+    }
   };
 
   return (
@@ -256,6 +325,44 @@ export default function OwnerReportsPage() {
                   </button>
                 </div>
               </div>
+            </div>
+          </SurfaceCard>
+
+          <SurfaceCard className="overflow-hidden">
+            <div className="border-b border-sky-100 px-6 py-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Report Schedule</p>
+              <p className="mt-2 text-sm text-slate-500">Choose which report windows should stay enabled for recurring owner review and future automation.</p>
+            </div>
+            <div className="grid gap-3 px-4 py-4 sm:grid-cols-3">
+              {REPORT_OPTIONS.map((option) => {
+                const saved = schedules.find((entry) => entry.period === option.value);
+                const enabled = saved?.enabled ?? false;
+
+                return (
+                  <div key={option.value} className="rounded-[22px] border border-sky-100 bg-white p-4 shadow-[0_12px_30px_rgba(15,42,94,0.04)]">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-950">{option.label}</p>
+                        <p className="mt-1 text-xs text-slate-400">{enabled ? 'Enabled for future scheduling' : 'Currently not enabled'}</p>
+                      </div>
+                      <button
+                        onClick={() => handleSaveSchedule(option.value, !enabled)}
+                        disabled={scheduleBusy === option.value}
+                        className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                          enabled
+                            ? 'bg-slate-950 text-white'
+                            : 'border border-sky-100 bg-white text-slate-600 hover:border-orange-200 hover:bg-orange-50 hover:text-slate-900'
+                        }`}
+                      >
+                        {scheduleBusy === option.value ? 'Saving...' : enabled ? 'Enabled' : 'Enable'}
+                      </button>
+                    </div>
+                    <p className="mt-4 text-xs leading-6 text-slate-500">
+                      Delivery mode: {saved?.delivery_mode || 'download_only'}{saved?.recipient_email ? ` | ${saved.recipient_email}` : ''}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           </SurfaceCard>
 
@@ -336,6 +443,7 @@ export default function OwnerReportsPage() {
                               <div className="flex flex-wrap items-center gap-2">
                                 <p className="text-sm font-semibold text-slate-950">{driver.name}</p>
                                 <DutyBadge dutyStatus={driver.dutyStatus} trackingExpected={driver.trackingExpected} />
+                                <SafetyScoreBadge score={driver.safetyScore} />
                                 <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${getRiskBand(driver.riskScore).className}`}>
                                   {getRiskBand(driver.riskScore).label}
                                 </span>

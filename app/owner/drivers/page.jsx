@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useMemo, useState } from 'react';
 import {
   DutyBadge,
   EmptyState,
   FleetSetupPanel,
   OwnerShell,
+  SafetyScoreBadge,
   StatusBadge,
   SurfaceCard,
   WorkspaceError,
@@ -20,6 +22,33 @@ import {
 
 export default function OwnerDriversPage() {
   const workspace = useOwnerWorkspaceData();
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [dutyFilter, setDutyFilter] = useState('all');
+  const [scoreFilter, setScoreFilter] = useState('all');
+
+  const filteredDrivers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return workspace.drivers.filter((driver) => {
+      const matchesQuery = !query || [
+        driver.name,
+        driver.phone,
+        driver.vehicle_plate,
+        driver.vehicle_model,
+      ].filter(Boolean).some((value) => String(value).toLowerCase().includes(query));
+
+      const matchesStatus = statusFilter === 'all'
+        || (statusFilter === 'active' ? driver.is_online : !driver.is_online);
+      const matchesDuty = dutyFilter === 'all' || driver.dutyStatus === dutyFilter;
+      const matchesScore = scoreFilter === 'all'
+        || (scoreFilter === 'strong' && driver.safetyScore >= 85)
+        || (scoreFilter === 'watch' && driver.safetyScore >= 65 && driver.safetyScore < 85)
+        || (scoreFilter === 'risk' && driver.safetyScore < 65);
+
+      return matchesQuery && matchesStatus && matchesDuty && matchesScore;
+    });
+  }, [workspace.drivers, search, statusFilter, dutyFilter, scoreFilter]);
 
   return (
     <OwnerShell section="drivers" fleet={workspace.fleet} user={workspace.user} toast={workspace.toast}>
@@ -38,17 +67,44 @@ export default function OwnerDriversPage() {
         <SurfaceCard className="overflow-hidden">
           <div className="border-b border-sky-100 px-6 py-5">
             <p className="text-xs font-semibold uppercase tracking-[0.26em] text-orange-500">Drivers Directory</p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Every connected driver, status, phone, and live route access.</h1>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Every connected driver, status, score, and live route access.</h1>
             <p className="mt-3 max-w-2xl text-base leading-8 text-slate-600">
-              Use this page to scan your whole fleet, call drivers, and jump straight into their current route when location is available.
+              Search by driver, vehicle, or phone, then filter the fleet by live status, duty state, or safety score band.
             </p>
+
+            <div className="mt-6 grid gap-3 lg:grid-cols-[minmax(220px,1.4fr)_repeat(3,minmax(0,0.6fr))]">
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search driver, phone, or vehicle"
+                className="rounded-2xl border border-sky-100 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-orange-200"
+              />
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rounded-2xl border border-sky-100 bg-white px-4 py-3 text-sm text-slate-700 outline-none">
+                <option value="all">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="offline">Offline</option>
+              </select>
+              <select value={dutyFilter} onChange={(event) => setDutyFilter(event.target.value)} className="rounded-2xl border border-sky-100 bg-white px-4 py-3 text-sm text-slate-700 outline-none">
+                <option value="all">All Duty States</option>
+                <option value="on_duty">On Duty</option>
+                <option value="break">Break</option>
+                <option value="shift_ended">Shift Ended</option>
+                <option value="off_duty">Off Duty</option>
+              </select>
+              <select value={scoreFilter} onChange={(event) => setScoreFilter(event.target.value)} className="rounded-2xl border border-sky-100 bg-white px-4 py-3 text-sm text-slate-700 outline-none">
+                <option value="all">All Scores</option>
+                <option value="strong">Strong</option>
+                <option value="watch">Watch</option>
+                <option value="risk">Risk</option>
+              </select>
+            </div>
           </div>
 
-          {!workspace.drivers.length ? (
-            <EmptyState title="No drivers in this fleet yet" description="As soon as drivers join with your invite code, they will appear here with status and map access." />
+          {!filteredDrivers.length ? (
+            <EmptyState title="No drivers match these filters" description="Try another search or clear one of the active filters." />
           ) : (
             <div className="space-y-3 px-4 py-4 sm:px-6 sm:py-6">
-              {workspace.drivers.map((driver) => {
+              {filteredDrivers.map((driver) => {
                 const coords = getDriverCoords(driver);
                 const hasLocation = hasValidLocation(coords);
                 return (
@@ -63,6 +119,7 @@ export default function OwnerDriversPage() {
                             <p className="truncate text-base font-semibold text-slate-950">{formatDriverDisplayName(driver)}</p>
                             <StatusBadge status={driver.is_online ? 'active' : 'offline'} />
                             <DutyBadge dutyStatus={driver.dutyStatus} trackingExpected={driver.trackingExpected} />
+                            <SafetyScoreBadge score={driver.safetyScore} />
                           </div>
                           <p className="mt-2 text-sm text-slate-500">{driver.phone}</p>
                           {formatVehicleIdentity({ vehiclePlate: driver.vehicle_plate, vehicleModel: driver.vehicle_model }) ? (
@@ -82,6 +139,12 @@ export default function OwnerDriversPage() {
                       </div>
 
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <Link
+                          href={`/owner/drivers/${driver.id}`}
+                          className="inline-flex items-center justify-center rounded-full border border-sky-100 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-orange-200 hover:bg-orange-50 hover:text-slate-900"
+                        >
+                          View detail
+                        </Link>
                         <a
                           href={`tel:${driver.phone}`}
                           className="inline-flex items-center justify-center rounded-full border border-sky-100 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-orange-200 hover:bg-orange-50 hover:text-slate-900"

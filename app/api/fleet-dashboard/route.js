@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 import { buildOfflineAlerts } from '@/lib/safety';
 import { DRIVER_BASE_SELECT, DRIVER_DUTY_SELECT, isDriverDutyColumnError, withDriverDutyDefaults } from '@/lib/driver-duty';
+import { calculateDriverSafetyScore } from '@/lib/driver-score';
 import { randomInt } from 'node:crypto';
 import {
   FLEET_BASE_SELECT,
@@ -10,6 +11,12 @@ import {
   normalizeOwnerEmail,
   resolveFleet,
 } from './route-shared';
+
+function isAlertResolutionColumnError(error) {
+  if (!error) return false;
+  const combined = `${error.message || ''} ${error.details || ''} ${error.hint || ''}`.toLowerCase();
+  return combined.includes('resolution_status') || combined.includes('resolution_note') || combined.includes('resolved_by');
+}
 
 function generateInviteCode() {
   return randomInt(0, 100000).toString().padStart(5, '0');
@@ -60,7 +67,7 @@ export async function GET(request) {
 
     const [
       driversResult,
-      { data: alerts, error: alertsError },
+      alertsResult,
     ] = await Promise.all([
       supabase
         .from('drivers')
@@ -69,7 +76,7 @@ export async function GET(request) {
         .order('last_seen', { ascending: false }),
       supabase
         .from('fleet_alerts')
-        .select('id, driver_id, driver_name, driver_phone, type, severity, message, meta, created_at')
+        .select('id, driver_id, driver_name, driver_phone, type, severity, message, meta, created_at, resolved_at, resolution_status, resolution_note, resolved_by')
         .eq('fleet_id', fleet.id)
         .order('created_at', { ascending: false })
         .limit(alertLimit),
@@ -77,6 +84,8 @@ export async function GET(request) {
 
     let drivers = driversResult.data;
     let driversError = driversResult.error;
+    let alerts = alertsResult.data;
+    let alertsError = alertsResult.error;
 
     if (driversError && isDriverDutyColumnError(driversError)) {
       const fallbackDrivers = await supabase
@@ -97,6 +106,18 @@ export async function GET(request) {
       );
     }
 
+    if (alertsError && isAlertResolutionColumnError(alertsError)) {
+      const fallbackAlerts = await supabase
+        .from('fleet_alerts')
+        .select('id, driver_id, driver_name, driver_phone, type, severity, message, meta, created_at, resolved_at')
+        .eq('fleet_id', fleet.id)
+        .order('created_at', { ascending: false })
+        .limit(alertLimit);
+
+      alerts = fallbackAlerts.data;
+      alertsError = fallbackAlerts.error;
+    }
+
     if (alertsError) {
       console.warn('Alerts fetch skipped:', alertsError.message);
     }
@@ -113,6 +134,10 @@ export async function GET(request) {
       message: alert.message,
       meta: alert.meta || {},
       createdAt: alert.created_at,
+      resolvedAt: alert.resolved_at,
+      resolutionStatus: alert.resolution_status || (alert.resolved_at ? 'resolved' : 'open'),
+      resolutionNote: alert.resolution_note || null,
+      resolvedBy: alert.resolved_by || null,
     }));
 
     const offlineAlerts = buildOfflineAlerts(drivers ?? [], normalizedAlerts);
@@ -126,8 +151,16 @@ export async function GET(request) {
         lastTrackingReason: entry.last_tracking_reason,
         sessionId: entry.duty_session_id,
         dutyStatusChangedAt: entry.duty_status_changed_at,
+        safetyScore: 100,
       };
     });
+
+    const allAlerts = [...normalizedAlerts, ...offlineAlerts]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const driversWithScores = normalizedDrivers.map((driver) => ({
+      ...driver,
+      safetyScore: calculateDriverSafetyScore(driver, allAlerts),
+    }));
 
     return NextResponse.json({
       success: true,
@@ -137,10 +170,8 @@ export async function GET(request) {
           name: fleet.owner_name || 'My Fleet',
           inviteCode: fleet.invite_code,
         },
-        drivers: normalizedDrivers,
-        alerts: [...normalizedAlerts, ...offlineAlerts]
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-          .slice(0, alertLimit),
+        drivers: driversWithScores,
+        alerts: allAlerts.slice(0, alertLimit),
       },
     });
   } catch (error) {

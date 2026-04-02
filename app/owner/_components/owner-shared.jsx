@@ -161,6 +161,23 @@ export function SurfaceCard({ children, className = '' }) {
   return <section className={`rounded-[28px] border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] shadow-[0_18px_55px_rgba(15,42,94,0.08)] ${className}`}>{children}</section>;
 }
 
+export function SafetyScoreBadge({ score }) {
+  const numericScore = typeof score === 'number' && Number.isFinite(score)
+    ? Math.max(0, Math.min(100, Math.round(score)))
+    : 100;
+  const styles = numericScore >= 85
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    : numericScore >= 65
+      ? 'border-amber-200 bg-amber-50 text-amber-700'
+      : 'border-red-200 bg-red-50 text-red-700';
+
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] ${styles}`}>
+      Safety {numericScore}
+    </span>
+  );
+}
+
 export function PwaInstallBanner() {
   const [isStandalone, setIsStandalone] = useState(false);
   const [isInstallable, setIsInstallable] = useState(false);
