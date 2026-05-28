@@ -102,7 +102,7 @@ export default function OwnerAlertsPage() {
           isSettingUpFleet={workspace.isSettingUpFleet}
         />
       ) : (
-        <SurfaceCard className="overflow-hidden">
+        <div className="bg-white overflow-hidden border border-slate-200 rounded-2xl">
           <div className="border-b border-sky-100 px-6 py-5">
             <p className="text-xs font-semibold uppercase tracking-[0.26em] text-orange-500">Alerts Center</p>
             <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Review every fleet alert in one timeline.</h1>
@@ -207,7 +207,7 @@ export default function OwnerAlertsPage() {
               })}
             </div>
           )}
-        </SurfaceCard>
+        </div>
       )}
     </OwnerShell>
   );

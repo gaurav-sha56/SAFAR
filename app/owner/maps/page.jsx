@@ -45,7 +45,7 @@ export default function OwnerMapsPage() {
         />
       ) : (
         <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
-          <SurfaceCard className="overflow-hidden">
+          <div className="bg-white overflow-hidden border border-slate-200 rounded-2xl">
             <div className="border-b border-sky-100 px-6 py-5">
               <p className="text-xs font-semibold uppercase tracking-[0.26em] text-orange-500">Fleet Map</p>
               <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950">Browse all connected cars from one live map view.</h1>
@@ -94,9 +94,9 @@ export default function OwnerMapsPage() {
                 })}
               </div>
             )}
-          </SurfaceCard>
+          </div>
 
-          <SurfaceCard className="overflow-hidden">
+          <div className="bg-white overflow-hidden border border-slate-200 rounded-2xl">
             {!selectedDriver || !selectedCoords ? (
               <EmptyState
                 title="No live map available yet"
@@ -132,7 +132,7 @@ export default function OwnerMapsPage() {
                 </div>
               </>
             )}
-          </SurfaceCard>
+          </div>
         </div>
       )}
     </OwnerShell>

@@ -48,7 +48,7 @@ function InviteCodeCard({ code }) {
   };
 
   return (
-    <SurfaceCard className="p-6">
+    <div className="bg-white p-6 border border-slate-200 rounded-2xl">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Fleet Invite Code</p>
@@ -86,7 +86,7 @@ function InviteCodeCard({ code }) {
           {copied ? 'Copied' : 'Copy code'}
         </button>
       </div>
-    </SurfaceCard>
+    </div>
   );
 }
 
@@ -94,7 +94,7 @@ function RecentDriversCard({ drivers }) {
   const recentDrivers = drivers.slice(0, 5);
 
   return (
-    <SurfaceCard className="overflow-hidden">
+    <div className="bg-white overflow-hidden border border-slate-200 rounded-2xl">
       <div className="flex flex-col gap-4 border-b border-sky-100 px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Recent Drivers</p>
@@ -150,7 +150,7 @@ function RecentDriversCard({ drivers }) {
           })}
         </div>
       )}
-    </SurfaceCard>
+    </div>
   );
 }
 
@@ -158,7 +158,7 @@ function RecentAlertsCard({ alerts }) {
   const recentAlerts = alerts.slice(0, 5);
 
   return (
-    <SurfaceCard className="overflow-hidden">
+    <div className="bg-white overflow-hidden border border-slate-200 rounded-2xl">
       <div className="flex flex-col gap-4 border-b border-sky-100 px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Recent Alerts</p>
@@ -200,7 +200,7 @@ function RecentAlertsCard({ alerts }) {
           ))}
         </div>
       )}
-    </SurfaceCard>
+    </div>
   );
 }
 
@@ -224,7 +224,7 @@ export default function OwnerDashboardPage() {
         />
       ) : (
         <div className="space-y-6">
-          <SurfaceCard className="p-6 sm:p-8">
+          <div className="bg-white p-6 sm:p-8 border border-slate-200 rounded-2xl">
             <div className="grid gap-8 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.9fr)] xl:items-end">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-orange-500">Owner Dashboard</p>
@@ -243,7 +243,7 @@ export default function OwnerDashboardPage() {
                 <QuickStat label="Status" value="Live" tone="emerald" />
               </div>
             </div>
-          </SurfaceCard>
+          </div>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]">
             <InviteCodeCard code={workspace.inviteCode} />

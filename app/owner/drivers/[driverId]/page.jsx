@@ -47,7 +47,7 @@ export default function OwnerDriverDetailPage() {
         <WorkspaceError message="Driver not found in this fleet." onRetry={workspace.fetchDashboardData} />
       ) : (
         <div className="space-y-6">
-          <SurfaceCard className="p-6 sm:p-8">
+          <div className="bg-white p-6 sm:p-8 border border-slate-200 rounded-2xl">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.26em] text-orange-500">Driver Detail</p>
@@ -85,10 +85,10 @@ export default function OwnerDriverDetailPage() {
                 ) : null}
               </div>
             </div>
-          </SurfaceCard>
+          </div>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-            <SurfaceCard className="overflow-hidden">
+            <div className="bg-white overflow-hidden border border-slate-200 rounded-2xl">
               <div className="border-b border-sky-100 px-6 py-5">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Recent Alerts</p>
                 <p className="mt-2 text-sm text-slate-500">Latest safety events and interruptions linked to this driver.</p>
@@ -111,9 +111,9 @@ export default function OwnerDriverDetailPage() {
                   ))}
                 </div>
               )}
-            </SurfaceCard>
+            </div>
 
-            <SurfaceCard className="overflow-hidden">
+            <div className="bg-white overflow-hidden border border-slate-200 rounded-2xl">
               <div className="border-b border-sky-100 px-6 py-5">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Driver Snapshot</p>
                 <p className="mt-2 text-sm text-slate-500">Quick context for follow-up and review.</p>
@@ -138,7 +138,7 @@ export default function OwnerDriverDetailPage() {
                   </p>
                 </div>
               </div>
-            </SurfaceCard>
+            </div>
           </div>
         </div>
       )}

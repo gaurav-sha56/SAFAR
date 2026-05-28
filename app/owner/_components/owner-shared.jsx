@@ -158,7 +158,7 @@ export function DutyBadge({ dutyStatus, trackingExpected }) {
 }
 
 export function SurfaceCard({ children, className = '' }) {
-  return <section className={`rounded-[28px] border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] shadow-[0_18px_55px_rgba(15,42,94,0.08)] ${className}`}>{children}</section>;
+  return <section className={`rounded-[28px] border border-[#0D1B2A]/10 bg-white shadow-[0_18px_55px_rgba(15,42,94,0.08)] ${className}`}>{children}</section>;
 }
 
 export function SafetyScoreBadge({ score }) {
@@ -233,17 +233,17 @@ export function PwaInstallBanner() {
   if (isStandalone || !isInstallable || isDismissed) return null;
 
   return (
-    <div className="mb-6 overflow-hidden rounded-[28px] border border-sky-100 bg-[radial-gradient(circle_at_top_left,#e0f2fe_0%,#ffffff_42%,#fff7ed_100%)] p-5 shadow-[0_18px_55px_rgba(15,42,94,0.08)] sm:p-6">
+    <div className="mb-6 overflow-hidden bg-white p-5 sm:p-6 border border-slate-200 rounded-2xl">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-[0_16px_32px_rgba(15,23,42,0.22)]">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#0D1B2A] text-white shadow-[0_16px_32px_rgba(15,23,42,0.22)]">
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
             </svg>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Install SAFAR App</p>
-            <h3 className="mt-2 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">Launch faster with a real app-style experience.</h3>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#0D1B2A]">Install SAFAR App</p>
+            <h3 className="mt-2 text-xl font-black tracking-tight text-[#0D1B2A] sm:text-2xl">Launch faster with a real app-style experience.</h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
               Install SAFAR on this device for full-screen access, cleaner navigation, and a smoother owner dashboard on Android.
             </p>
@@ -254,13 +254,13 @@ export function PwaInstallBanner() {
           <button
             onClick={handleInstall}
             disabled={isInstalling}
-            className="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center rounded-full bg-[#FF6B35] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-[#E55A25] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isInstalling ? 'Preparing install...' : 'Install app'}
           </button>
           <button
             onClick={() => setIsDismissed(true)}
-            className="inline-flex items-center justify-center rounded-full border border-sky-100 bg-white px-4 py-3 text-sm font-semibold text-slate-600 transition hover:border-orange-200 hover:bg-orange-50 hover:text-slate-900"
+            className="inline-flex items-center justify-center rounded-full border border-[#0D1B2A]/10 bg-white px-4 py-3 text-sm font-semibold text-[#0D1B2A] transition hover:border-[#0D1B2A]/30"
           >
             Maybe later
           </button>
@@ -413,17 +413,17 @@ export function PushNotificationBanner({ fleetId, userId }) {
   return (
     <>
       {showPromptModal ? (
-        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/40 p-4 backdrop-blur-sm sm:items-center">
-          <div className="w-full max-w-xl overflow-hidden rounded-[32px] border border-sky-100 bg-[radial-gradient(circle_at_top_left,#fff7ed_0%,#ffffff_40%,#e0f2fe_100%)] p-6 shadow-[0_28px_80px_rgba(15,23,42,0.28)] sm:p-8">
+        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-[#0D1B2A]/40 p-4 backdrop-blur-sm sm:items-center">
+          <div className="w-full max-w-xl overflow-hidden rounded-[32px] border border-[#0D1B2A]/10 bg-white p-6 shadow-[0_28px_80px_rgba(15,23,42,0.28)] sm:p-8">
             <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[22px] bg-slate-950 text-white shadow-[0_18px_38px_rgba(15,23,42,0.22)]">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[22px] bg-[#0D1B2A] text-white shadow-[0_18px_38px_rgba(15,23,42,0.22)]">
                 <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0a3 3 0 11-6 0h6z" />
                 </svg>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-600">Instant Fleet Alerts</p>
-                <h3 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Turn on WhatsApp-style safety notifications.</h3>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#FF6B35]">Instant Fleet Alerts</p>
+                <h3 className="mt-2 text-2xl font-black tracking-tight text-[#0D1B2A] sm:text-3xl">Turn on WhatsApp-style safety notifications.</h3>
                 <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
                   Enable notifications once and SAFAR will alert you instantly for SOS, overspeed, and driver tracking issues even while the app is in the background.
                 </p>
@@ -432,7 +432,7 @@ export function PushNotificationBanner({ fleetId, userId }) {
 
             <div className="mt-6 grid gap-3 rounded-[24px] border border-white/80 bg-white/80 p-4 shadow-[0_14px_30px_rgba(15,42,94,0.05)] sm:grid-cols-3">
               {['SOS emergency alerts', 'Overspeed warnings', 'Tracking stopped updates'].map((item) => (
-                <div key={item} className="rounded-[20px] bg-sky-50/70 px-4 py-4 text-sm font-semibold text-slate-700">
+                <div key={item} className="rounded-[20px] bg-[#0D1B2A]/5 px-4 py-4 text-sm font-semibold text-slate-700">
                   {item}
                 </div>
               ))}
@@ -441,14 +441,14 @@ export function PushNotificationBanner({ fleetId, userId }) {
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
               <button
                 onClick={handleDismissPrompt}
-                className="inline-flex items-center justify-center rounded-full border border-sky-100 bg-white px-5 py-3 text-sm font-semibold text-slate-600 transition hover:border-orange-200 hover:bg-orange-50 hover:text-slate-900"
+                className="inline-flex items-center justify-center rounded-full border border-[#0D1B2A]/10 bg-white px-5 py-3 text-sm font-semibold text-[#0D1B2A] transition hover:border-[#0D1B2A]/30"
               >
                 Maybe later
               </button>
               <button
                 onClick={handleEnable}
                 disabled={isBusy}
-                className="inline-flex items-center justify-center rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center rounded-full bg-[#FF6B35] px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-[#E55A25] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isBusy ? 'Enabling alerts...' : 'Enable notifications'}
               </button>
@@ -458,7 +458,7 @@ export function PushNotificationBanner({ fleetId, userId }) {
       ) : null}
 
       {(status === 'blocked' || status === 'error' || status === 'unsupported') ? (
-        <div className="mb-6 overflow-hidden rounded-[28px] border border-orange-200 bg-[radial-gradient(circle_at_top_left,#fff7ed_0%,#ffffff_42%,#eff6ff_100%)] p-5 shadow-[0_18px_55px_rgba(15,42,94,0.08)] sm:p-6">
+        <div className="mb-6 overflow-hidden bg-white p-5 sm:p-6 border border-slate-200 rounded-2xl">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-[0_16px_32px_rgba(249,115,22,0.22)]">
@@ -467,8 +467,8 @@ export function PushNotificationBanner({ fleetId, userId }) {
                 </svg>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-600">Instant Fleet Alerts</p>
-                <h3 className="mt-2 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">Notifications need one quick fix.</h3>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#FF6B35]">Instant Fleet Alerts</p>
+                <h3 className="mt-2 text-xl font-black tracking-tight text-[#0D1B2A] sm:text-2xl">Notifications need one quick fix.</h3>
                 <p className={`mt-3 text-sm leading-6 ${status === 'blocked' || status === 'error' || status === 'unsupported' ? 'text-red-600' : 'text-emerald-700'}`}>{message}</p>
                 {debugInfo ? (
                   <div className="mt-3 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-xs leading-6 text-slate-500">
@@ -484,7 +484,7 @@ export function PushNotificationBanner({ fleetId, userId }) {
               <button
                 onClick={handleEnable}
                 disabled={isBusy}
-                className="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center rounded-full bg-[#FF6B35] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-[#E55A25] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isBusy ? 'Retrying...' : status === 'unsupported' ? 'Retry in app' : 'Try again'}
               </button>
@@ -508,10 +508,10 @@ function StandaloneBottomNav({ section }) {
                 key={item.href}
                 href={item.href}
                 className={`flex min-h-[58px] flex-col items-center justify-center rounded-[20px] px-2 py-2 text-[11px] font-semibold transition ${
-                  active ? 'bg-slate-950 text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)]' : 'text-slate-500 hover:bg-sky-50 hover:text-slate-900'
+                  active ? 'bg-[#0D1B2A] text-white shadow-[0_12px_28px_rgba(15,23,42,0.18)]' : 'text-slate-500 hover:bg-[#0D1B2A]/5 hover:text-slate-900'
                 }`}
               >
-                <span className={`mb-1 h-1.5 w-1.5 rounded-full ${active ? 'bg-orange-300' : 'bg-slate-300'}`} />
+                <span className={`mb-1 h-1.5 w-1.5 rounded-full ${active ? 'bg-[#FF6B35]' : 'bg-slate-300'}`} />
                 {item.label}
               </Link>
             );
@@ -533,29 +533,29 @@ export function EmptyState({ title, description }) {
 
 export function WorkspaceLoading({ message = 'Preparing your fleet workspace...' }) {
   return (
-    <SurfaceCard className="p-5 sm:p-8">
+    <div className="bg-white p-5 sm:p-8 border border-slate-200 rounded-2xl">
       <div className="flex min-h-[240px] items-center justify-center">
-        <div className="rounded-full border border-sky-100 bg-white px-5 py-4 text-center text-sm font-semibold text-slate-500 shadow-[0_16px_45px_rgba(15,42,94,0.08)] sm:px-8 sm:py-5 sm:text-base">
+        <div className="rounded-full border border-[#0D1B2A]/10 bg-white px-5 py-4 text-center text-sm font-semibold text-slate-500 shadow-[0_16px_45px_rgba(15,42,94,0.08)] sm:px-8 sm:py-5 sm:text-base">
           {message}
         </div>
       </div>
-    </SurfaceCard>
+    </div>
   );
 }
 
 export function WorkspaceError({ message, onRetry }) {
   return (
-    <SurfaceCard className="border-red-200 bg-[linear-gradient(180deg,#fff9f9_0%,#ffffff_100%)] p-5 sm:p-8">
+    <div className="bg-white p-5 sm:p-8 border border-slate-200 rounded-2xl">
       <p className="text-xs font-semibold uppercase tracking-[0.28em] text-red-500">Workspace Error</p>
-      <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">We could not prepare your fleet yet.</h2>
+      <h2 className="mt-4 text-2xl font-black tracking-tight text-[#0D1B2A] sm:text-3xl">We could not prepare your fleet yet.</h2>
       <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">{message || 'Please retry once so we can reconnect your fleet workspace.'}</p>
       <button
         onClick={onRetry}
-        className="mt-6 inline-flex items-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-slate-800"
+        className="mt-6 inline-flex items-center rounded-full bg-[#FF6B35] px-5 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-[#E55A25]"
       >
         Retry fleet setup
       </button>
-    </SurfaceCard>
+    </div>
   );
 }
 
@@ -566,36 +566,36 @@ export function FleetSetupPanel({
   isSettingUpFleet,
 }) {
   return (
-    <SurfaceCard className="p-5 sm:p-8">
+    <div className="bg-white p-5 sm:p-8 border border-slate-200 rounded-2xl">
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] lg:items-center">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-orange-500">First-Time Setup</p>
-          <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-950 sm:text-5xl">Name your fleet and unlock your owner workspace.</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#FF6B35]">First-Time Setup</p>
+          <h2 className="mt-4 text-3xl font-black tracking-tight text-[#0D1B2A] sm:text-5xl">Name your fleet and unlock your owner workspace.</h2>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base sm:leading-8">
             Add a fleet name once and we will keep your invite code ready for every new driver you connect.
           </p>
         </div>
 
-        <div className="rounded-[28px] border border-sky-100 bg-white p-6 shadow-[0_18px_45px_rgba(15,42,94,0.08)]">
-          <label className="block text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">
+        <div className="rounded-[28px] border border-[#0D1B2A]/10 bg-white p-6 shadow-[0_18px_45px_rgba(15,42,94,0.08)]">
+          <label className="block text-xs font-semibold uppercase tracking-[0.24em] text-[#0D1B2A]">
             Fleet Name
           </label>
           <input
             value={fleetSetupName}
             onChange={(event) => setFleetSetupName(event.target.value)}
             placeholder="For example: Tarun City Fleet"
-            className="mt-4 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-base font-medium text-slate-900 outline-none transition focus:border-orange-200 focus:bg-white"
+            className="mt-4 w-full rounded-2xl border border-[#0D1B2A]/10 bg-[#0D1B2A]/5 px-4 py-3 text-base font-medium text-slate-900 outline-none transition focus:border-[#FF6B35]/40 focus:bg-white"
           />
           <button
             onClick={onSubmit}
             disabled={isSettingUpFleet}
-            className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-3.5 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-[#FF6B35] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)] transition hover:bg-[#E55A25] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSettingUpFleet ? 'Saving fleet...' : 'Save fleet and continue'}
           </button>
         </div>
       </div>
-    </SurfaceCard>
+    </div>
   );
 }
 
@@ -835,19 +835,15 @@ export function OwnerShell({ section, fleet, user, children, toast }) {
   const canGoBack = pathname !== '/owner';
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_52%,#fff8f1_100%)] text-slate-900">
-      <header className="sticky top-0 z-30 border-b border-sky-100 bg-white/92 backdrop-blur-xl app-safe-top">
+    <div className="min-h-screen bg-white text-slate-900">
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0D1B2A] backdrop-blur-xl app-safe-top">
         <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <Link href="/" className="flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-600 shadow-[0_12px_24px_rgba(14,165,233,0.24)]">
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                </svg>
-              </div>
+
               <div className="min-w-0">
-                <span className="block text-2xl font-extrabold tracking-tighter text-navy">SAFAR</span>
-                <p className="mt-0.5 text-xs font-medium text-slate-500 sm:text-sm">Control your fleet</p>
+                <span className="block text-2xl font-extrabold tracking-tighter text-white">SAFAR</span>
+                <p className="mt-0.5 text-xs font-medium text-white/60 sm:text-sm">Control your fleet</p>
               </div>
             </Link>
 
@@ -855,7 +851,7 @@ export function OwnerShell({ section, fleet, user, children, toast }) {
               {isStandalone && canGoBack ? (
                 <button
                   onClick={() => window.history.back()}
-                  className="inline-flex shrink-0 items-center gap-2 rounded-full border border-sky-100 bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-[0_10px_24px_rgba(15,42,94,0.08)] transition hover:border-orange-200 hover:bg-orange-50 hover:text-slate-900 lg:hidden"
+                  className="inline-flex shrink-0 items-center gap-2 rounded-full border border-white/20 px-3 py-2 text-sm font-semibold text-white/85 shadow-[0_10px_24px_rgba(15,42,94,0.08)] transition hover:bg-white/10 hover:text-white lg:hidden"
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
@@ -871,8 +867,8 @@ export function OwnerShell({ section, fleet, user, children, toast }) {
                     href={item.href}
                     className={`inline-flex shrink-0 items-center rounded-full px-3 py-2 text-sm font-semibold transition sm:px-4 ${
                       item.key === section
-                        ? 'bg-slate-950 text-white shadow-[0_10px_24px_rgba(15,23,42,0.18)]'
-                        : 'bg-transparent text-slate-600 hover:bg-orange-50 hover:text-slate-900'
+                        ? 'bg-[#FF6B35] text-white shadow-[0_10px_24px_rgba(15,23,42,0.18)]'
+                        : 'bg-transparent text-white/85 hover:bg-white/10 hover:text-white'
                     }`}
                   >
                     {item.label}
@@ -883,7 +879,7 @@ export function OwnerShell({ section, fleet, user, children, toast }) {
               <UserButton
                 appearance={{
                   elements: {
-                    avatarBox: 'h-9 w-9 ring-1 ring-sky-100 shadow-[0_10px_20px_rgba(15,42,94,0.08)]',
+                    avatarBox: 'h-9 w-9 ring-1 ring-white/20 shadow-[0_10px_20px_rgba(15,42,94,0.08)]',
                   },
                 }}
                 afterSignOutUrl="/"

@@ -278,7 +278,7 @@ export default function OwnerReportsPage() {
         />
       ) : (
         <div className="space-y-6 print:space-y-4">
-          <SurfaceCard className="p-6 sm:p-8 print:shadow-none print:border-slate-200">
+          <div className="bg-white p-6 sm:p-8 print:shadow-none print:border-slate-200 border border-slate-200 rounded-2xl">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.26em] text-orange-500">Fleet Reports</p>
@@ -326,9 +326,9 @@ export default function OwnerReportsPage() {
                 </div>
               </div>
             </div>
-          </SurfaceCard>
+          </div>
 
-          <SurfaceCard className="overflow-hidden">
+          <div className="bg-white overflow-hidden border border-slate-200 rounded-2xl">
             <div className="border-b border-sky-100 px-6 py-5">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Report Schedule</p>
               <p className="mt-2 text-sm text-slate-500">Choose which report windows should stay enabled for recurring owner review and future automation.</p>
@@ -364,7 +364,7 @@ export default function OwnerReportsPage() {
                 );
               })}
             </div>
-          </SurfaceCard>
+          </div>
 
           {isLoadingReport ? (
             <WorkspaceLoading message="Preparing report..." />
@@ -374,7 +374,7 @@ export default function OwnerReportsPage() {
             <EmptyState title="No report yet" description="Choose a report window once fleet data is ready." />
           ) : (
             <>
-              <SurfaceCard className="overflow-hidden border-slate-200 print:shadow-none">
+              <div className="bg-white overflow-hidden border-slate-200 print:shadow-none rounded-2xl">
                 <div className="bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_52%,#f97316_100%)] px-6 py-6 text-white sm:px-8">
                   <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div>
@@ -417,7 +417,7 @@ export default function OwnerReportsPage() {
                     </p>
                   </div>
                 </div>
-              </SurfaceCard>
+              </div>
 
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <MetricCard label="Total Alerts" value={report.summary.totalAlerts} hint="All incidents in this window." />
@@ -427,7 +427,7 @@ export default function OwnerReportsPage() {
               </div>
 
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-                <SurfaceCard className="overflow-hidden print:shadow-none">
+                <div className="bg-white overflow-hidden print:shadow-none border border-slate-200 rounded-2xl">
                   <div className="border-b border-sky-100 px-6 py-5">
                     <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Risk Drivers</p>
                     <p className="mt-2 text-sm text-slate-500">Drivers ranked by recent alert pressure and duty-compliance risk.</p>
@@ -464,9 +464,9 @@ export default function OwnerReportsPage() {
                       ))}
                     </div>
                   )}
-                </SurfaceCard>
+                </div>
 
-                <SurfaceCard className="overflow-hidden print:shadow-none">
+                <div className="bg-white overflow-hidden print:shadow-none border border-slate-200 rounded-2xl">
                   <div className="border-b border-sky-100 px-6 py-5">
                     <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Recommendations</p>
                     <p className="mt-2 text-sm text-slate-500">Use these action points in owner reviews or PDF handoffs.</p>
@@ -478,11 +478,11 @@ export default function OwnerReportsPage() {
                       </div>
                     ))}
                   </div>
-                </SurfaceCard>
+                </div>
               </div>
 
               <div className="grid gap-6 xl:grid-cols-2">
-                <SurfaceCard className="overflow-hidden print:shadow-none">
+                <div className="bg-white overflow-hidden print:shadow-none border border-slate-200 rounded-2xl">
                   <div className="border-b border-sky-100 px-6 py-5">
                     <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Top Alert Types</p>
                     <p className="mt-2 text-sm text-slate-500">Most common alert patterns in the selected report window.</p>
@@ -502,9 +502,9 @@ export default function OwnerReportsPage() {
                       ))}
                     </div>
                   )}
-                </SurfaceCard>
+                </div>
 
-                <SurfaceCard className="overflow-hidden print:shadow-none">
+                <div className="bg-white overflow-hidden print:shadow-none border border-slate-200 rounded-2xl">
                   <div className="border-b border-sky-100 px-6 py-5">
                     <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Recent Report Alerts</p>
                     <p className="mt-2 text-sm text-slate-500">Latest incidents included in this report window.</p>
@@ -528,11 +528,11 @@ export default function OwnerReportsPage() {
                       ))}
                     </div>
                   )}
-                </SurfaceCard>
+                </div>
               </div>
 
               <div className="grid gap-6 xl:grid-cols-3">
-                <SurfaceCard className="overflow-hidden print:shadow-none">
+                <div className="bg-white overflow-hidden print:shadow-none border border-slate-200 rounded-2xl">
                   <div className="border-b border-sky-100 px-6 py-5">
                     <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Insurance Impact</p>
                     <p className="mt-2 text-sm text-slate-500">How current alert trends could affect claims, scrutiny, or risk posture.</p>
@@ -544,9 +544,9 @@ export default function OwnerReportsPage() {
                       </div>
                     ))}
                   </div>
-                </SurfaceCard>
+                </div>
 
-                <SurfaceCard className="overflow-hidden print:shadow-none">
+                <div className="bg-white overflow-hidden print:shadow-none border border-slate-200 rounded-2xl">
                   <div className="border-b border-sky-100 px-6 py-5">
                     <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Maintenance Impact</p>
                     <p className="mt-2 text-sm text-slate-500">Vehicle-health concerns suggested by recent safety behavior.</p>
@@ -558,9 +558,9 @@ export default function OwnerReportsPage() {
                       </div>
                     ))}
                   </div>
-                </SurfaceCard>
+                </div>
 
-                <SurfaceCard className="overflow-hidden print:shadow-none">
+                <div className="bg-white overflow-hidden print:shadow-none border border-slate-200 rounded-2xl">
                   <div className="border-b border-sky-100 px-6 py-5">
                     <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Operational Impact</p>
                     <p className="mt-2 text-sm text-slate-500">Dispatch, visibility, and execution risks indicated by this report.</p>
@@ -572,10 +572,10 @@ export default function OwnerReportsPage() {
                       </div>
                     ))}
                   </div>
-                </SurfaceCard>
+                </div>
               </div>
 
-              <SurfaceCard className="overflow-hidden print:shadow-none">
+              <div className="bg-white overflow-hidden print:shadow-none border border-slate-200 rounded-2xl">
                 <div className="border-b border-sky-100 px-6 py-5">
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Driver Scoreboard</p>
                   <p className="mt-2 text-sm text-slate-500">Printable driver-by-driver review with risk bands for coaching and escalation.</p>
@@ -623,9 +623,9 @@ export default function OwnerReportsPage() {
                     </table>
                   </div>
                 )}
-              </SurfaceCard>
+              </div>
 
-              <SurfaceCard className="overflow-hidden print:shadow-none">
+              <div className="bg-white overflow-hidden print:shadow-none border border-slate-200 rounded-2xl">
                 <div className="border-b border-sky-100 px-6 py-5">
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-700">Sign-Off</p>
                   <p className="mt-2 text-sm text-slate-500">Use this area when the report is printed for review, coaching, or audit handoff.</p>
@@ -638,7 +638,7 @@ export default function OwnerReportsPage() {
                     </div>
                   ))}
                 </div>
-              </SurfaceCard>
+              </div>
             </>
           )}
         </div>
