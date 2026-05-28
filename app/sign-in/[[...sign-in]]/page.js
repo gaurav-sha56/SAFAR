@@ -3,6 +3,12 @@ import { auth } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+export const metadata = {
+  title: 'Sign In | SAFAR',
+  description: 'Sign in to your SAFAR fleet operations dashboard',
+  icons: { icon: '/favicon.png' }
+};
+
 export default async function SignInPage() {
   const { userId } = await auth();
   if (userId) {
@@ -10,51 +16,46 @@ export default async function SignInPage() {
   }
   const hasClerkKey = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
   return (
-    <main className="min-h-screen overflow-hidden bg-[linear-gradient(135deg,#f5f5f4_0%,#fff8ef_48%,#edf5ff_100%)] text-stone-900">
-      <div className="relative mx-auto grid min-h-screen max-w-7xl items-start gap-8 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[1fr_0.95fr] lg:items-center lg:gap-10 lg:px-10 lg:py-10">
-        <div className="pointer-events-none absolute left-[-7rem] top-[-5rem] h-64 w-64 rounded-full bg-orange-200/35 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-[-7rem] right-[-5rem] h-72 w-72 rounded-full bg-sky-200/35 blur-3xl" />
-
-        <section className="order-2 relative max-w-2xl lg:order-1">
-          <div className="inline-flex items-center gap-3 rounded-full border border-orange-200/80 bg-white/85 px-4 py-2 shadow-[0_14px_45px_rgba(15,42,94,0.08)] backdrop-blur">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-navy text-sm font-bold tracking-[0.3em] text-white">
-              S
-            </span>
-            <div>
-              <p className="text-sm font-semibold tracking-[0.3em] text-navy">SAFAR</p>
-              <p className="text-xs text-stone-500">Secure owner login for your fleet workspace</p>
-            </div>
-          </div>
-
-          <h1 className="mt-6 max-w-xl text-4xl font-black tracking-tight text-navy sm:text-5xl lg:mt-8 lg:text-6xl">
-            Welcome back to Safar.
+    <main className="flex min-h-screen">
+      {/* Left panel — navy */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-[#0D1B2A] p-12">
+        <div>
+          <Link href="/" className="text-2xl font-bold tracking-tight text-white">SAFAR</Link>
+        </div>
+        <div className="max-w-lg">
+          <h1 className="text-4xl font-black tracking-tight text-white xl:text-5xl">
+            Welcome back to your fleet dashboard.
           </h1>
-          <p className="mt-4 max-w-xl text-base leading-8 text-stone-600 sm:text-lg lg:mt-5">
+          <p className="mt-4 text-base leading-8 text-slate-300">
             Sign in to continue tracking drivers, reviewing alerts, and managing fleet activity from one clean dashboard.
           </p>
-
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:mt-8">
-            <div className="rounded-[28px] border border-white/70 bg-white/90 p-5 shadow-[0_18px_60px_rgba(15,42,94,0.08)] backdrop-blur">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-orange-500">Live Tracking</p>
-              <p className="mt-3 text-sm leading-6 text-stone-600">Open driver locations quickly and keep the active fleet status visible at a glance.</p>
+          <div className="mt-10 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#FF6B35]">Live Tracking</p>
+              <p className="mt-3 text-sm leading-6 text-slate-400">Open driver locations quickly and keep the active fleet status visible at a glance.</p>
             </div>
-            <div className="rounded-[28px] border border-white/70 bg-white/90 p-5 shadow-[0_18px_60px_rgba(15,42,94,0.08)] backdrop-blur">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-orange-500">Fast Return</p>
-              <p className="mt-3 text-sm leading-6 text-stone-600">This route stays inside your app, so owners come back to the dashboard without a broken flow.</p>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#FF6B35]">Fast Return</p>
+              <p className="mt-3 text-sm leading-6 text-slate-400">This route stays inside your app, so owners come back to the dashboard without a broken flow.</p>
             </div>
           </div>
-        </section>
+        </div>
+        <p className="text-xs text-slate-500">&copy; 2026 Safar Cabs Private Limited</p>
+      </div>
 
-        <section className="order-1 relative w-full max-w-lg justify-self-stretch lg:order-2 lg:justify-self-end">
-          <div className="rounded-[28px] border border-white/80 bg-white/95 p-5 shadow-[0_30px_90px_rgba(15,42,94,0.14)] backdrop-blur sm:rounded-[32px] sm:p-8">
-            <div className="mb-6">
-              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-orange-500">Owner Sign In</p>
-              <h2 className="mt-2 text-2xl font-bold text-navy sm:text-3xl">Access your dashboard</h2>
-              <p className="mt-2 text-sm leading-6 text-stone-500">
-                Sign in here to continue directly into the Safar owner workspace.
-              </p>
-            </div>
+      {/* Right panel — form */}
+      <div className="flex w-full flex-col items-center justify-center bg-white px-4 py-12 lg:w-1/2">
+        <div className="w-full max-w-md">
+          <div className="mb-8 lg:hidden">
+            <Link href="/" className="text-2xl font-bold tracking-tight text-[#0D1B2A]">SAFAR</Link>
+          </div>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#FF6B35]">Owner Sign In</p>
+          <h2 className="mt-2 text-2xl font-bold text-[#0D1B2A] sm:text-3xl">Access your dashboard</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Sign in here to continue directly into the Safar owner workspace.
+          </p>
 
+          <div className="mt-8">
             {hasClerkKey ? (
               <SignIn
                 path="/sign-in"
@@ -64,7 +65,7 @@ export default async function SignInPage() {
                 forceRedirectUrl="/owner"
                 appearance={{
                   variables: {
-                    colorPrimary: "#0F2A5E",
+                    colorPrimary: "#0D1B2A",
                     colorText: "#1c1917",
                     colorBackground: "#ffffff",
                     colorInputBackground: "#fafaf9",
@@ -73,8 +74,8 @@ export default async function SignInPage() {
                   elements: {
                     card: "shadow-none border-0 p-0",
                     rootBox: "w-full",
-                    formButtonPrimary: "bg-[#0F2A5E] hover:bg-[#1a3d7c] text-white shadow-none",
-                    footerActionLink: "text-[#f97316] hover:text-[#ea580c]",
+                    formButtonPrimary: "bg-[#0D1B2A] hover:bg-[#1a2e45] text-white shadow-none",
+                    footerActionLink: "text-[#FF6B35] hover:text-[#E55A25]",
                     socialButtonsBlockButton: "border-stone-200 shadow-none hover:bg-stone-50",
                     formFieldInput: "border-stone-200 bg-stone-50",
                     formFieldLabel: "text-stone-700",
@@ -83,21 +84,21 @@ export default async function SignInPage() {
                 }}
               />
             ) : (
-              <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-4 text-center text-sm text-orange-700">
+              <div className="rounded-2xl border border-[#FF6B35]/20 bg-[#FF6B35]/8 px-4 py-4 text-center text-sm text-[#FF6B35]">
                 Add `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` to `.env.local` to enable Clerk sign-in.
               </div>
             )}
-
-            <div className="mt-6 flex items-center justify-center">
-              <Link
-                href="/sign-up"
-                className="text-sm font-semibold text-navy transition hover:text-orange-500"
-              >
-                Need a new owner account? Sign up
-              </Link>
-            </div>
           </div>
-        </section>
+
+          <div className="mt-6 text-center">
+            <Link
+              href="/sign-up"
+              className="text-sm font-semibold text-[#0D1B2A] transition hover:text-[#FF6B35]"
+            >
+              Need a new owner account? Sign up
+            </Link>
+          </div>
+        </div>
       </div>
     </main>
   );

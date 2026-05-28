@@ -36,7 +36,7 @@ export default function OwnerSosPage() {
           isSettingUpFleet={workspace.isSettingUpFleet}
         />
       ) : (
-        <SurfaceCard className="overflow-hidden">
+        <div className="bg-white overflow-hidden border border-slate-200 rounded-2xl">
           <div className="border-b border-sky-100 px-6 py-5">
             <p className="text-xs font-semibold uppercase tracking-[0.26em] text-red-500">SOS Command</p>
             <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">React fast to high-severity fleet incidents.</h1>
@@ -113,7 +113,7 @@ export default function OwnerSosPage() {
               })}
             </div>
           )}
-        </SurfaceCard>
+        </div>
       )}
     </OwnerShell>
   );
