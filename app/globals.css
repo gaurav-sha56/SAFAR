@@ -1,8 +1,9 @@
 @import "tailwindcss";
 :root {
-  --navy: #0F2A5E;
-  --navy-light: #1a3d7c;
-  --navy-dark: #091d42;
+  --navy: #0A1628;
+  --navy-light: #1a2d4a;
+  --navy-dark: #060e18;
+  --orange: #F97316;
 }
 
 @layer base {
@@ -48,8 +49,15 @@ body.app-standalone {
   .bg-navy { background-color: var(--navy); }
   .border-navy { border-color: var(--navy); }
   .hover\:bg-navy:hover { background-color: var(--navy); }
-  .bg-navy\/10 { background-color: rgb(15 42 94 / 0.10); }
-  .bg-navy\/95 { background-color: rgb(15 42 94 / 0.95); }
+  .bg-navy\/10 { background-color: rgb(10 22 40 / 0.10); }
+  .bg-navy\/95 { background-color: rgb(10 22 40 / 0.95); }
+
+  /* Orange accent utilities */
+  .text-orange { color: var(--orange); }
+  .bg-orange { background-color: var(--orange); }
+  .border-orange { border-color: var(--orange); }
+  .hover\:text-orange:hover { color: var(--orange); }
+  .hover\:border-orange:hover { border-color: var(--orange); }
 }
 
 /* Digit animation for code generation */
